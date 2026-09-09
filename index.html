@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Room Controller</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+  <div class="w-full max-w-sm bg-slate-900 rounded-3xl shadow-2xl p-6 border border-slate-800">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-lg font-bold">Room Controller</h1>
+        <p class="text-xs text-slate-400">ESP32-S3 4CH Relay</p>
+      </div>
+      <span id="connStatus" class="px-3 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300 font-medium">Connecting...</span>
+    </div>
+
+    <!-- แผงปุ่ม 4 ช่อง -->
+    <div class="grid grid-cols-2 gap-3.5">
+      <button onclick="toggleRelay(1)" id="btn-1" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
+        <div class="text-xs text-slate-400 mb-1">RELAY 1 (38)</div>
+        <div id="text-1" class="text-xl font-bold text-slate-300">OFF</div>
+      </button>
+
+      <button onclick="toggleRelay(2)" id="btn-2" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
+        <div class="text-xs text-slate-400 mb-1">RELAY 2 (39)</div>
+        <div id="text-2" class="text-xl font-bold text-slate-300">OFF</div>
+      </button>
+
+      <button onclick="toggleRelay(3)" id="btn-3" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
+        <div class="text-xs text-slate-400 mb-1">RELAY 3 (40)</div>
+        <div id="text-3" class="text-xl font-bold text-slate-300">OFF</div>
+      </button>
+
+      <button onclick="toggleRelay(4)" id="btn-4" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
+        <div class="text-xs text-slate-400 mb-1">RELAY 4 (41)</div>
+        <div id="text-4" class="text-xl font-bold text-slate-300">OFF</div>
+      </button>
+    </div>
+
+    <!-- ปุ่มเปิด-ปิด ทั้งหมด -->
+    <div class="grid grid-cols-2 gap-2 mt-4">
+      <button onclick="setAll('ON')" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700/60">Turn All ON</button>
+      <button onclick="setAll('OFF')" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700/60">Turn All OFF</button>
+    </div>
+  </div>
+
+  <script>
+    const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
+    const MQTT_PORT = 8884;
+    const MQTT_USER = "BabyTrout";
+    const MQTT_PASS = "2644@8246";
+
+    let relayStates = [false, false, false, false];
+    const client = new Paho.MQTT.Client(MQTT_HOST, Number(MQTT_PORT), "/mqtt", "web_" + Math.random().toString(16).substr(2, 8));
+
+    client.onConnectionLost = () => {
+      const el = document.getElementById("connStatus");
+      el.className = "px-3 py-1 text-xs rounded-full bg-red-500/20 text-red-400 font-medium";
+      el.innerText = "Offline";
+    };
+
+    client.onMessageArrived = (msg) => {
+      for (let i = 1; i <= 4; i++) {
+        if (msg.destinationName === `myroom/relay/${i}/state`) {
+          const isOn = msg.payloadString === "ON";
+          relayStates[i - 1] = isOn;
+          updateUI(i, isOn);
+        }
+      }
+    };
+
+    client.connect({
+      useSSL: true,
+      userName: MQTT_USER,
+      password: MQTT_PASS,
+      onSuccess: () => {
+        const el = document.getElementById("connStatus");
+        el.className = "px-3 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400 font-medium";
+        el.innerText = "Online";
+        client.subscribe("myroom/relay/+/state");
+      }
+    });
+
+    function toggleRelay(index) {
+      const nextState = !relayStates[index - 1] ? "ON" : "OFF";
+      const message = new Paho.MQTT.Message(nextState);
+      message.destinationName = `myroom/relay/${index}/set`;
+      client.send(message);
+    }
+
+    function setAll(state) {
+      for (let i = 1; i <= 4; i++) {
+        const message = new Paho.MQTT.Message(state);
+        message.destinationName = `myroom/relay/${i}/set`;
+        client.send(message);
+      }
+    }
+
+    function updateUI(index, isOn) {
+      const btn = document.getElementById(`btn-${index}`);
+      const text = document.getElementById(`text-${index}`);
+      if (isOn) {
+        btn.className = "p-5 rounded-2xl bg-emerald-600 font-semibold text-center border border-emerald-400 text-white shadow-lg shadow-emerald-900/30 transition active:scale-95";
+        text.className = "text-xl font-bold text-white";
+        text.innerText = "ON";
+      } else {
+        btn.className = "p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 text-slate-300 transition active:scale-95";
+        text.className = "text-xl font-bold text-slate-300";
+        text.innerText = "OFF";
+      }
+    }
+  </script>
+</body>
+</html>
