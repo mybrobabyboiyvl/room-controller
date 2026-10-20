@@ -14,11 +14,9 @@
       --bg: #090d16;
       --card-bg: rgba(22, 29, 47, 0.7);
       --card-border: rgba(255, 255, 255, 0.08);
-      --card-hover: rgba(30, 41, 67, 0.85);
       --text: #f1f5f9;
       --text-muted: #8e9bb0;
       --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.35);
       --on-color: #10b981;
       --on-glow: rgba(16, 185, 129, 0.35);
       --off-color: #ef4444;
@@ -40,15 +38,16 @@
 
     .container { width: 100%; max-width: 860px; }
 
-    /* Top Bar */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
     .brand h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
     .brand p { font-size: 0.85rem; color: var(--text-muted); }
+    .header-controls { display: flex; align-items: center; gap: 10px; }
+
     .badge {
       display: inline-flex;
       align-items: center;
@@ -67,7 +66,27 @@
     .badge.disconnected { color: #f87171; }
     .badge.disconnected .badge-dot { background: #ef4444; }
 
-    /* Glass Panels */
+    /* ปุ่มสลับเสียง Buzzer บนหัวเว็บ */
+    .buzzer-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .buzzer-toggle.active {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #818cf8;
+    }
+
     .glass-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -75,10 +94,8 @@
       padding: 20px;
       backdrop-filter: blur(14px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-      transition: all 0.2s ease;
     }
 
-    /* Master Section */
     .master-card {
       margin-bottom: 24px;
       border: 1px solid rgba(99, 102, 241, 0.25);
@@ -93,12 +110,10 @@
     .card-title { font-size: 1.05rem; font-weight: 600; }
     .card-subtitle { font-size: 0.8rem; color: var(--text-muted); }
 
-    /* Button System */
     .btn-group { display: flex; gap: 8px; }
     .btn {
       appearance: none;
       border: none;
-      outline: none;
       cursor: pointer;
       font-weight: 600;
       border-radius: 10px;
@@ -108,38 +123,29 @@
       justify-content: center;
     }
     .btn:active { transform: scale(0.96); }
-    .btn-primary {
+    .btn-all-on {
       padding: 9px 18px;
       font-size: 0.85rem;
-      background: #1e293b;
-      color: var(--text);
-      border: 1px solid var(--card-border);
-    }
-    .btn-primary:hover { background: #334155; }
-    .btn-all-on {
       background: var(--on-color);
       color: #022c22;
       box-shadow: 0 4px 14px var(--on-glow);
     }
     .btn-all-off {
+      padding: 9px 18px;
+      font-size: 0.85rem;
       background: rgba(239, 68, 68, 0.15);
       color: #fca5a5;
       border: 1px solid rgba(239, 68, 68, 0.3);
     }
     .btn-all-off:hover { background: var(--off-color); color: #fff; }
 
-    /* Grid for 4 Relays */
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 18px;
     }
 
-    .relay-status {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+    .relay-status { display: flex; align-items: center; gap: 10px; }
     .status-light {
       width: 10px;
       height: 10px;
@@ -152,17 +158,12 @@
       box-shadow: 0 0 12px var(--on-color);
     }
 
-    .relay-btn {
-      padding: 7px 16px;
-      font-size: 0.82rem;
-      border-radius: 8px;
-    }
+    .relay-btn { padding: 7px 16px; font-size: 0.82rem; border-radius: 8px; }
     .relay-btn.on { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
     .relay-btn.on:hover { background: var(--on-color); color: #022c22; }
     .relay-btn.off { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--card-border); }
     .relay-btn.off:hover { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
 
-    /* Schedule Controls */
     .schedule-box {
       margin-top: 14px;
       padding-top: 14px;
@@ -188,9 +189,7 @@
       padding: 5px 8px;
       font-size: 0.85rem;
       outline: none;
-      transition: border-color 0.2s;
     }
-    input[type="time"]:focus { border-color: var(--accent); }
 
     .btn-icon {
       padding: 6px 11px;
@@ -221,19 +220,25 @@
 <body>
 
 <div class="container">
-  <!-- Top Bar -->
   <header>
     <div class="brand">
       <h1>Lighting Center</h1>
       <p>ESP32-S3 Smart System</p>
     </div>
-    <div id="connStatus" class="badge disconnected">
-      <span class="badge-dot"></span>
-      <span id="connText">Disconnected</span>
+    <div class="header-controls">
+      <!-- ปุ่มเปิด/ปิดเสียง Buzzer -->
+      <button id="buzzerToggle" class="buzzer-toggle active" onclick="toggleBuzzer()">
+        <span id="buzzerIcon">🔔</span> <span id="buzzerText">เสียง: เปิด</span>
+      </button>
+
+      <div id="connStatus" class="badge disconnected">
+        <span class="badge-dot"></span>
+        <span id="connText">Disconnected</span>
+      </div>
     </div>
   </header>
 
-  <!-- Master Control & Master Schedule -->
+  <!-- Master Controls -->
   <div class="glass-card master-card">
     <div class="card-top">
       <div>
@@ -241,12 +246,11 @@
         <div class="card-subtitle">เปิด-ปิด และตั้งเวลาทุกดวงพร้อมกัน</div>
       </div>
       <div class="btn-group">
-        <button class="btn btn-primary btn-all-on" onclick="setAllRelays('ON')">เปิดทั้งหมด</button>
-        <button class="btn btn-primary btn-all-off" onclick="setAllRelays('OFF')">ปิดทั้งหมด</button>
+        <button class="btn btn-all-on" onclick="setAllRelays('ON')">เปิดทั้งหมด</button>
+        <button class="btn btn-all-off" onclick="setAllRelays('OFF')">ปิดทั้งหมด</button>
       </div>
     </div>
 
-    <!-- Master Scheduler -->
     <div class="schedule-box">
       <div class="sched-item">
         <span class="sched-label">ตั้งเปิดรวม:</span>
@@ -269,21 +273,19 @@
     </div>
   </div>
 
-  <!-- 4 Channel Cards -->
   <div class="grid" id="relayGrid"></div>
 </div>
 
 <script>
-  // ข้อมูลเชื่อมต่อ HiveMQ Cloud Secure WebSockets
   const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
   const MQTT_PORT = 8884;
   const MQTT_USER = "BabyTrout";
   const MQTT_PASS = "2644@8246";
   const CLIENT_ID = "WebMinimal-" + Math.random().toString(16).substr(2, 8);
 
+  let isBuzzerOn = true;
   const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
 
-  // สร้าง Card 4 ช่อง
   const grid = document.getElementById("relayGrid");
   for (let i = 1; i <= 4; i++) {
     grid.innerHTML += `
@@ -334,10 +336,10 @@
       onSuccess: () => {
         document.getElementById("connStatus").className = "badge connected";
         document.getElementById("connText").innerText = "Online";
-        console.log("MQTT Connected");
 
         client.subscribe("myroom/relay/+/state");
         client.subscribe("myroom/schedule/+/+/state");
+        client.subscribe("myroom/buzzer/state");
       },
       onFailure: (err) => {
         document.getElementById("connStatus").className = "badge disconnected";
@@ -357,7 +359,7 @@
     const topic = message.destinationName;
     const payload = message.payloadString;
 
-    // สถานะรีเลย์ 1-4
+    // สถานะไฟ 1-4
     const rMatch = topic.match(/myroom\/relay\/(\d+)\/state/);
     if (rMatch) {
       const id = rMatch[1];
@@ -374,7 +376,24 @@
       }
     }
 
-    // สถานะเวลาที่ตั้งไว้รายช่อง
+    // สถานะ Buzzer
+    if (topic === "myroom/buzzer/state") {
+      isBuzzerOn = (payload === "ON");
+      const btn = document.getElementById("buzzerToggle");
+      const icon = document.getElementById("buzzerIcon");
+      const text = document.getElementById("buzzerText");
+      if (isBuzzerOn) {
+        btn.classList.add("active");
+        icon.innerText = "🔔";
+        text.innerText = "เสียง: เปิด";
+      } else {
+        btn.classList.remove("active");
+        icon.innerText = "🔕";
+        text.innerText = "เสียง: ปิด";
+      }
+    }
+
+    // สถานะเวลาที่ตั้งไว้
     const sMatch = topic.match(/myroom\/schedule\/(\d+)\/(on|off)\/state/);
     if (sMatch) {
       const id = sMatch[1];
@@ -409,6 +428,11 @@
     publishMsg(`myroom/relay/all/set`, action);
   }
 
+  function toggleBuzzer() {
+    const nextState = isBuzzerOn ? "OFF" : "ON";
+    publishMsg("myroom/buzzer/set", nextState);
+  }
+
   function saveSchedule(id, type) {
     const val = document.getElementById(`time_${type}_${id}`).value;
     if (!val) return;
@@ -419,7 +443,6 @@
     publishMsg(`myroom/schedule/${id}/${type}`, "OFF");
   }
 
-  // ฟังก์ชันสำหรับ Master Schedule (กระจายคำสั่งไปทั้ง 4 ช่องพร้อมกัน)
   function saveMasterSchedule(type) {
     const val = document.getElementById(`time_master_${type}`).value;
     if (!val) {
