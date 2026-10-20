@@ -3,116 +3,308 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room Controller</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Smart Light & Schedule Dashboard</title>
+  <!-- Paho MQTT Library (WebSocket) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --accent-on: #22c55e;
+      --accent-off: #ef4444;
+      --primary: #3b82f6;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+    body { background: var(--bg); color: var(--text-main); padding: 20px; }
+    
+    .container { max-width: 900px; margin: 0 auto; }
+    
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      background: #334155;
+    }
+    .status-badge.connected { background: #14532d; color: #4ade80; }
+    .status-badge.disconnected { background: #7f1d1d; color: #f87171; }
+
+    /* Master Controls */
+    .master-panel {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      border: 1px solid #334155;
+    }
+    .master-buttons { display: flex; gap: 10px; }
+    .btn {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-on { background: var(--accent-on); color: #fff; }
+    .btn-off { background: var(--accent-off); color: #fff; }
+    .btn-set { background: var(--primary); color: #fff; }
+    .btn-clear { background: #475569; color: #fff; }
+    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    /* Grid layout for 4 Relays */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #334155;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .state-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent-off);
+      margin-right: 6px;
+    }
+    .state-indicator.active { background: var(--accent-on); box-shadow: 0 0 10px var(--accent-on); }
+
+    /* Scheduler Section */
+    .schedule-section {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.9rem;
+    }
+    .schedule-title { color: var(--text-sub); margin-bottom: 8px; font-weight: 600; }
+    .sched-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .sched-row:last-child { margin-bottom: 0; }
+    .sched-row label { width: 70px; color: var(--text-sub); }
+    input[type="time"] {
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #fff;
+      padding: 6px;
+      border-radius: 6px;
+      outline: none;
+    }
+    .active-badge {
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #334155;
+      color: #94a3b8;
+    }
+    .active-badge.set { background: #065f46; color: #34d399; }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+<body>
 
-  <div class="w-full max-w-sm bg-slate-900 rounded-3xl shadow-2xl p-6 border border-slate-800">
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h1 class="text-lg font-bold">Room Controller</h1>
-        <p class="text-xs text-slate-400">ESP32-S3 4CH Relay</p>
-      </div>
-      <span id="connStatus" class="px-3 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-300 font-medium">Connecting...</span>
+<div class="container">
+  <header>
+    <h1>Smart Light & Timer Control</h1>
+    <div id="connStatus" class="status-badge disconnected">Disconnected from MQTT</div>
+  </header>
+
+  <!-- Master Controls -->
+  <div class="master-panel">
+    <div>
+      <h3>Master Switch</h3>
+      <p style="color: var(--text-sub); font-size: 0.85rem;">ควบคุมหลอดไฟทั้งหมดพร้อมกัน</p>
     </div>
-
-    <!-- แผงปุ่ม 4 ช่อง -->
-    <div class="grid grid-cols-2 gap-3.5">
-      <button onclick="toggleRelay(1)" id="btn-1" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
-        <div class="text-xs text-slate-400 mb-1">RELAY 1 (38)</div>
-        <div id="text-1" class="text-xl font-bold text-slate-300">OFF</div>
-      </button>
-
-      <button onclick="toggleRelay(2)" id="btn-2" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
-        <div class="text-xs text-slate-400 mb-1">RELAY 2 (39)</div>
-        <div id="text-2" class="text-xl font-bold text-slate-300">OFF</div>
-      </button>
-
-      <button onclick="toggleRelay(3)" id="btn-3" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
-        <div class="text-xs text-slate-400 mb-1">RELAY 3 (40)</div>
-        <div id="text-3" class="text-xl font-bold text-slate-300">OFF</div>
-      </button>
-
-      <button onclick="toggleRelay(4)" id="btn-4" class="p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 transition active:scale-95">
-        <div class="text-xs text-slate-400 mb-1">RELAY 4 (41)</div>
-        <div id="text-4" class="text-xl font-bold text-slate-300">OFF</div>
-      </button>
-    </div>
-
-    <!-- ปุ่มเปิด-ปิด ทั้งหมด -->
-    <div class="grid grid-cols-2 gap-2 mt-4">
-      <button onclick="setAll('ON')" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700/60">Turn All ON</button>
-      <button onclick="setAll('OFF')" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700/60">Turn All OFF</button>
+    <div class="master-buttons">
+      <button class="btn btn-on" onclick="setAllRelays('ON')">เปิดทั้งหมด</button>
+      <button class="btn btn-off" onclick="setAllRelays('OFF')">ปิดทั้งหมด</button>
     </div>
   </div>
 
-  <script>
-    const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
-    const MQTT_PORT = 8884;
-    const MQTT_USER = "BabyTrout";
-    const MQTT_PASS = "2644@8246";
+  <!-- 4 Relays Cards -->
+  <div class="grid" id="relayGrid"></div>
+</div>
 
-    let relayStates = [false, false, false, false];
-    const client = new Paho.MQTT.Client(MQTT_HOST, Number(MQTT_PORT), "/mqtt", "web_" + Math.random().toString(16).substr(2, 8));
+<script>
+  // 1. กำหนดค่าเชื่อมต่อ HiveMQ Cloud
+  const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
+  const MQTT_PORT = 8884; // พอร์ต Secure WebSocket (WSS) สำหรับ Web Browser
+  const MQTT_USER = "BabyTrout";
+  const MQTT_PASS = "2644@8246";
+  const CLIENT_ID = "WebClient-" + Math.random().toString(16).substr(2, 8);
 
-    client.onConnectionLost = () => {
-      const el = document.getElementById("connStatus");
-      el.className = "px-3 py-1 text-xs rounded-full bg-red-500/20 text-red-400 font-medium";
-      el.innerText = "Offline";
-    };
+  const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
 
-    client.onMessageArrived = (msg) => {
-      for (let i = 1; i <= 4; i++) {
-        if (msg.destinationName === `myroom/relay/${i}/state`) {
-          const isOn = msg.payloadString === "ON";
-          relayStates[i - 1] = isOn;
-          updateUI(i, isOn);
-        }
-      }
-    };
+  // สร้าง Card 4 ช่องในหน้าเว็บ
+  const grid = document.getElementById("relayGrid");
+  for (let i = 1; i <= 4; i++) {
+    grid.innerHTML += `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3><span id="dot_${i}" class="state-indicator"></span>หลอดไฟที่ ${i}</h3>
+            <span id="status_text_${i}" style="font-size: 0.8rem; color: var(--text-sub);">สถานะ: ปิด</span>
+          </div>
+          <div>
+            <button class="btn btn-on" onclick="setRelay(${i}, 'ON')">เปิด</button>
+            <button class="btn btn-off" onclick="setRelay(${i}, 'OFF')">ปิด</button>
+          </div>
+        </div>
 
+        <div class="schedule-section">
+          <div class="schedule-title">ตั้งเวลาอัตโนมัติ (ช่องที่ ${i})</div>
+          
+          <div class="sched-row">
+            <label>เวลาเปิด:</label>
+            <input type="time" id="time_on_${i}">
+            <button class="btn btn-set" style="padding: 6px 10px;" onclick="saveSchedule(${i}, 'on')">ตั้ง</button>
+            <button class="btn btn-clear" style="padding: 6px 8px;" onclick="clearSchedule(${i}, 'on')">ลบ</button>
+            <span id="badge_on_${i}" class="active-badge">ไม่ได้ตั้ง</span>
+          </div>
+
+          <div class="sched-row">
+            <label>เวลาปิด:</label>
+            <input type="time" id="time_off_${i}">
+            <button class="btn btn-set" style="padding: 6px 10px;" onclick="saveSchedule(${i}, 'off')">ตั้ง</button>
+            <button class="btn btn-clear" style="padding: 6px 8px;" onclick="clearSchedule(${i}, 'off')">ลบ</button>
+            <span id="badge_off_${i}" class="active-badge">ไม่ได้ตั้ง</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. จัดการการเชื่อมต่อ MQTT
+  function connectMQTT() {
     client.connect({
       useSSL: true,
       userName: MQTT_USER,
       password: MQTT_PASS,
       onSuccess: () => {
-        const el = document.getElementById("connStatus");
-        el.className = "px-3 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400 font-medium";
-        el.innerText = "Online";
+        document.getElementById("connStatus").innerText = "HiveMQ Connected";
+        document.getElementById("connStatus").className = "status-badge connected";
+        console.log("MQTT Connected!");
+
+        // Subscribe เพื่อรับสถานะปัจจุบันของรีเลย์ และเวลาที่ตั้งไว้
         client.subscribe("myroom/relay/+/state");
+        client.subscribe("myroom/schedule/+/+/state");
+      },
+      onFailure: (err) => {
+        document.getElementById("connStatus").innerText = "Connect Failed";
+        document.getElementById("connStatus").className = "status-badge disconnected";
+        console.error("Connection failed: ", err);
+        setTimeout(connectMQTT, 5000);
       }
     });
+  }
 
-    function toggleRelay(index) {
-      const nextState = !relayStates[index - 1] ? "ON" : "OFF";
-      const message = new Paho.MQTT.Message(nextState);
-      message.destinationName = `myroom/relay/${index}/set`;
-      client.send(message);
-    }
+  client.onConnectionLost = (responseObject) => {
+    document.getElementById("connStatus").innerText = "Connection Lost (Reconnecting...)";
+    document.getElementById("connStatus").className = "status-badge disconnected";
+    setTimeout(connectMQTT, 3000);
+  };
 
-    function setAll(state) {
-      for (let i = 1; i <= 4; i++) {
-        const message = new Paho.MQTT.Message(state);
-        message.destinationName = `myroom/relay/${i}/set`;
-        client.send(message);
-      }
-    }
+  // 3. รับข้อความอัปเดตจาก ESP32
+  client.onMessageArrived = (message) => {
+    const topic = message.destinationName;
+    const payload = message.payloadString;
 
-    function updateUI(index, isOn) {
-      const btn = document.getElementById(`btn-${index}`);
-      const text = document.getElementById(`text-${index}`);
-      if (isOn) {
-        btn.className = "p-5 rounded-2xl bg-emerald-600 font-semibold text-center border border-emerald-400 text-white shadow-lg shadow-emerald-900/30 transition active:scale-95";
-        text.className = "text-xl font-bold text-white";
-        text.innerText = "ON";
+    // อัปเดตสถานะสวิตช์: myroom/relay/1/state
+    const relayMatch = topic.match(/myroom\/relay\/(\d+)\/state/);
+    if (relayMatch) {
+      const id = relayMatch[1];
+      const dot = document.getElementById(`dot_${id}`);
+      const text = document.getElementById(`status_text_${id}`);
+      if (payload === "ON") {
+        dot.classList.add("active");
+        text.innerText = "สถานะ: เปิด";
+        text.style.color = "var(--accent-on)";
       } else {
-        btn.className = "p-5 rounded-2xl bg-slate-800 font-semibold text-center border border-slate-700/60 text-slate-300 transition active:scale-95";
-        text.className = "text-xl font-bold text-slate-300";
-        text.innerText = "OFF";
+        dot.classList.remove("active");
+        text.innerText = "สถานะ: ปิด";
+        text.style.color = "var(--text-sub)";
       }
     }
-  </script>
+
+    // อัปเดตการแสดงผลเวลาที่ตั้งไว้: myroom/schedule/1/on/state
+    const schedMatch = topic.match(/myroom\/schedule\/(\d+)\/(on|off)\/state/);
+    if (schedMatch) {
+      const id = schedMatch[1];
+      const type = schedMatch[2];
+      const badge = document.getElementById(`badge_${type}_${id}`);
+      const input = document.getElementById(`time_${type}_${id}`);
+
+      if (payload === "OFF" || payload === "") {
+        badge.innerText = "ไม่ได้ตั้ง";
+        badge.classList.remove("set");
+        input.value = "";
+      } else {
+        badge.innerText = "ตั้งไว้: " + payload;
+        badge.classList.add("set");
+        input.value = payload;
+      }
+    }
+  };
+
+  // 4. คำสั่งสั่งงานผ่าน MQTT
+  function publishMsg(topic, msg) {
+    if (!client.isConnected()) return;
+    const message = new Paho.MQTT.Message(msg);
+    message.destinationName = topic;
+    message.retained = true; // Retain ให้ค่าค้างไว้สำหรับสถานะเวลา
+    client.send(message);
+  }
+
+  function setRelay(index, action) {
+    publishMsg(`myroom/relay/${index}/set`, action);
+  }
+
+  function setAllRelays(action) {
+    publishMsg(`myroom/relay/all/set`, action);
+  }
+
+  function saveSchedule(index, type) {
+    const timeVal = document.getElementById(`time_${type}_${index}`).value;
+    if (!timeVal) {
+      alert("กรุณาเลือกเวลาก่อนกดบันทึก");
+      return;
+    }
+    publishMsg(`myroom/schedule/${index}/${type}`, timeVal);
+  }
+
+  function clearSchedule(index, type) {
+    publishMsg(`myroom/schedule/${index}/${type}`, "OFF");
+  }
+
+  // เริ่มเชื่อมต่อ
+  connectMQTT();
+</script>
+
 </body>
 </html>
