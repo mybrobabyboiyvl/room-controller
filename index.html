@@ -1,474 +1,407 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Room Controller</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SmartHome KMITL Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Paho MQTT WebSocket Client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
-
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #090d16;
-      --card-bg: rgba(22, 29, 47, 0.7);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --text: #f1f5f9;
-      --text-muted: #8e9bb0;
-      --accent: #6366f1;
-      --on-color: #10b981;
-      --on-glow: rgba(16, 185, 129, 0.35);
-      --off-color: #ef4444;
-      --input-bg: rgba(11, 16, 29, 0.8);
-      --radius: 16px;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body {
-      background-color: var(--bg);
-      background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-                        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px 16px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .container { width: 100%; max-width: 860px; }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-    }
-    .brand h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
-    .brand p { font-size: 0.85rem; color: var(--text-muted); }
-    .header-controls { display: flex; align-items: center; gap: 10px; }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 500;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--card-border);
-      backdrop-filter: blur(8px);
-    }
-    .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
-    .badge.connected { color: #34d399; }
-    .badge.connected .badge-dot { background: #10b981; box-shadow: 0 0 10px #10b981; }
-    .badge.disconnected { color: #f87171; }
-    .badge.disconnected .badge-dot { background: #ef4444; }
-
-    /* ปุ่มสลับเสียง Buzzer บนหัวเว็บ */
-    .buzzer-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--card-border);
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text-muted);
-      transition: all 0.2s;
-    }
-    .buzzer-toggle.active {
-      background: rgba(99, 102, 241, 0.15);
-      border-color: rgba(99, 102, 241, 0.4);
-      color: #818cf8;
-    }
-
-    .glass-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: var(--radius);
-      padding: 20px;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    }
-
-    .master-card {
-      margin-bottom: 24px;
-      border: 1px solid rgba(99, 102, 241, 0.25);
-      background: linear-gradient(135deg, rgba(30, 41, 75, 0.6) 0%, rgba(15, 23, 42, 0.7) 100%);
-    }
-    .card-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 18px;
-    }
-    .card-title { font-size: 1.05rem; font-weight: 600; }
-    .card-subtitle { font-size: 0.8rem; color: var(--text-muted); }
-
-    .btn-group { display: flex; gap: 8px; }
-    .btn {
-      appearance: none;
-      border: none;
-      cursor: pointer;
-      font-weight: 600;
-      border-radius: 10px;
-      transition: all 0.18s ease;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .btn:active { transform: scale(0.96); }
-    .btn-all-on {
-      padding: 9px 18px;
-      font-size: 0.85rem;
-      background: var(--on-color);
-      color: #022c22;
-      box-shadow: 0 4px 14px var(--on-glow);
-    }
-    .btn-all-off {
-      padding: 9px 18px;
-      font-size: 0.85rem;
-      background: rgba(239, 68, 68, 0.15);
-      color: #fca5a5;
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-    .btn-all-off:hover { background: var(--off-color); color: #fff; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 18px;
-    }
-
-    .relay-status { display: flex; align-items: center; gap: 10px; }
-    .status-light {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #475569;
-      transition: all 0.3s ease;
-    }
-    .status-light.on {
-      background: var(--on-color);
-      box-shadow: 0 0 12px var(--on-color);
-    }
-
-    .relay-btn { padding: 7px 16px; font-size: 0.82rem; border-radius: 8px; }
-    .relay-btn.on { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .relay-btn.on:hover { background: var(--on-color); color: #022c22; }
-    .relay-btn.off { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--card-border); }
-    .relay-btn.off:hover { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
-
-    .schedule-box {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid var(--card-border);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .sched-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .sched-label { font-size: 0.8rem; color: var(--text-muted); width: 65px; }
-    .sched-controls { display: flex; align-items: center; gap: 6px; }
-    
-    input[type="time"] {
-      background: var(--input-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      color: var(--text);
-      padding: 5px 8px;
-      font-size: 0.85rem;
-      outline: none;
-    }
-
-    .btn-icon {
-      padding: 6px 11px;
-      font-size: 0.78rem;
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text);
-      border: 1px solid var(--card-border);
-    }
-    .btn-icon:hover { background: rgba(255, 255, 255, 0.1); }
-    .btn-del { color: #f87171; }
-
-    .tag-state {
-      font-size: 0.72rem;
-      padding: 2px 7px;
-      border-radius: 6px;
-      background: rgba(255, 255, 255, 0.04);
-      color: #64748b;
-      min-width: 58px;
-      text-align: center;
-    }
-    .tag-state.active {
-      background: rgba(16, 185, 129, 0.12);
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.2);
-    }
+    body { font-family: 'Prompt', sans-serif; }
   </style>
 </head>
-<body>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
 
-<div class="container">
-  <header>
-    <div class="brand">
-      <h1>Lighting Center</h1>
-      <p>ESP32-S3 Smart System</p>
-    </div>
-    <div class="header-controls">
-      <!-- ปุ่มเปิด/ปิดเสียง Buzzer -->
-      <button id="buzzerToggle" class="buzzer-toggle active" onclick="toggleBuzzer()">
-        <span id="buzzerIcon">🔔</span> <span id="buzzerText">เสียง: เปิด</span>
-      </button>
-
-      <div id="connStatus" class="badge disconnected">
-        <span class="badge-dot"></span>
-        <span id="connText">Disconnected</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Master Controls -->
-  <div class="glass-card master-card">
-    <div class="card-top">
+  <div class="max-w-4xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800/80 backdrop-blur p-6 rounded-2xl border border-slate-700 shadow-xl">
       <div>
-        <div class="card-title">Master Control</div>
-        <div class="card-subtitle">เปิด-ปิด และตั้งเวลาทุกดวงพร้อมกัน</div>
+        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <span>💡</span> SmartHome Room Controller
+        </h1>
+        <p class="text-sm text-slate-400 mt-1 flex items-center gap-2">
+          <span id="mqttStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+          <span id="mqttStatusText">กำลังเชื่อมต่อ HiveMQ...</span>
+        </p>
       </div>
-      <div class="btn-group">
-        <button class="btn btn-all-on" onclick="setAllRelays('ON')">เปิดทั้งหมด</button>
-        <button class="btn btn-all-off" onclick="setAllRelays('OFF')">ปิดทั้งหมด</button>
+      <div class="flex items-center gap-3">
+        <button id="enableNotifyBtn" onclick="requestNotificationPermission()" 
+                class="px-4 py-2 text-sm font-medium rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all shadow-lg shadow-blue-600/30 flex items-center gap-2">
+          <span>🔔</span> <span id="notifyBtnText">เปิดแจ้งเตือน</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Master Control & Settings Panel -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Master Switch -->
+      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 flex items-center justify-between">
+        <div>
+          <h2 class="font-semibold text-lg text-white">Master Control</h2>
+          <p class="text-xs text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="sendMqtt('myroom/relay/all/set', 'ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+            เปิดหมด
+          </button>
+          <button onclick="sendMqtt('myroom/relay/all/set', 'OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+            ปิดหมด
+          </button>
+        </div>
+      </div>
+
+      <!-- Buzzer Toggle -->
+      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 flex items-center justify-between">
+        <div>
+          <h2 class="font-semibold text-lg text-white">Buzzer เสียงเตือน</h2>
+          <p id="buzzerStatus" class="text-xs text-slate-400">สถานะ: กำลังโหลด...</p>
+        </div>
+        <button id="buzzerBtn" onclick="toggleBuzzer()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition-all active:scale-95">
+          🔊 สลับเสียง
+        </button>
       </div>
     </div>
 
-    <div class="schedule-box">
-      <div class="sched-item">
-        <span class="sched-label">ตั้งเปิดรวม:</span>
-        <div class="sched-controls">
-          <input type="time" id="time_master_on">
-          <button class="btn btn-icon" onclick="saveMasterSchedule('on')">บันทึก</button>
-          <button class="btn btn-icon btn-del" onclick="clearMasterSchedule('on')">ยกเลิก</button>
-          <span id="badge_master_on" class="tag-state">ไม่ได้ตั้ง</span>
+    <!-- 4 Relay Channels Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Channel 1 -->
+      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div id="bulbIcon1" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div>
+              <h3 class="font-semibold text-white">ไฟช่อง 1</h3>
+              <p class="text-xs text-slate-400">GPIO 38</p>
+            </div>
+          </div>
+          <button id="toggleBtn1" onclick="toggleRelay(1)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+            ...
+          </button>
+        </div>
+        <!-- Schedule Form -->
+        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime1" onchange="updateSchedule(1, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime1" onchange="updateSchedule(1, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
         </div>
       </div>
-      <div class="sched-item">
-        <span class="sched-label">ตั้งปิดรวม:</span>
-        <div class="sched-controls">
-          <input type="time" id="time_master_off">
-          <button class="btn btn-icon" onclick="saveMasterSchedule('off')">บันทึก</button>
-          <button class="btn btn-icon btn-del" onclick="clearMasterSchedule('off')">ยกเลิก</button>
-          <span id="badge_master_off" class="tag-state">ไม่ได้ตั้ง</span>
+
+      <!-- Channel 2 -->
+      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div id="bulbIcon2" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div>
+              <h3 class="font-semibold text-white">ไฟช่อง 2</h3>
+              <p class="text-xs text-slate-400">GPIO 39</p>
+            </div>
+          </div>
+          <button id="toggleBtn2" onclick="toggleRelay(2)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+            ...
+          </button>
         </div>
+        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime2" onchange="updateSchedule(2, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime2" onchange="updateSchedule(2, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Channel 3 -->
+      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div id="bulbIcon3" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div>
+              <h3 class="font-semibold text-white">ไฟช่อง 3</h3>
+              <p class="text-xs text-slate-400">GPIO 17</p>
+            </div>
+          </div>
+          <button id="toggleBtn3" onclick="toggleRelay(3)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+            ...
+          </button>
+        </div>
+        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime3" onchange="updateSchedule(3, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime3" onchange="updateSchedule(3, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Channel 4 -->
+      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div id="bulbIcon4" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div>
+              <h3 class="font-semibold text-white">ไฟช่อง 4</h3>
+              <p class="text-xs text-slate-400">GPIO 18</p>
+            </div>
+          </div>
+          <button id="toggleBtn4" onclick="toggleRelay(4)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+            ...
+          </button>
+        </div>
+        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime4" onchange="updateSchedule(4, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime4" onchange="updateSchedule(4, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Event Log -->
+    <div class="bg-slate-800/50 p-5 rounded-2xl border border-slate-700 text-xs text-slate-400">
+      <div class="flex justify-between items-center mb-2 font-semibold text-slate-300">
+        <span>📜 ประวัติการทำงานล่าสุด</span>
+        <button onclick="document.getElementById('logArea').innerHTML=''" class="hover:text-white">ล้างประวัติ</button>
+      </div>
+      <div id="logArea" class="space-y-1 max-h-36 overflow-y-auto font-mono">
+        <div>[System] หน้าเว็บโหลดเรียบร้อย พร้อมใช้งาน</div>
       </div>
     </div>
   </div>
 
-  <div class="grid" id="relayGrid"></div>
-</div>
+  <script>
+    // --- 1. การตั้งค่า HiveMQ Cloud WebSocket (Port 8884) ---
+    const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
+    const MQTT_PORT = 8884; // พอร์ต Secure WebSocket (WSS) ของ HiveMQ Cloud
+    const MQTT_USER = "BabyTrout";
+    const MQTT_PASS = "2644@8246";
+    const CLIENT_ID = "WebClient_" + Math.random().toString(16).substr(2, 8);
 
-<script>
-  const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
-  const MQTT_PORT = 8884;
-  const MQTT_USER = "BabyTrout";
-  const MQTT_PASS = "2644@8246";
-  const CLIENT_ID = "WebMinimal-" + Math.random().toString(16).substr(2, 8);
+    let client = null;
+    let relayStates = { 1: false, 2: false, 3: false, 4: false };
+    let lastKnownStates = {}; // ใช้ตรวจจับการเปลี่ยนสถานะเพื่อยิง Notification
+    let buzzerState = true;
 
-  let isBuzzerOn = true;
-  const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
-
-  const grid = document.getElementById("relayGrid");
-  for (let i = 1; i <= 4; i++) {
-    grid.innerHTML += `
-      <div class="glass-card">
-        <div class="card-top">
-          <div class="relay-status">
-            <span id="light_${i}" class="status-light"></span>
-            <div>
-              <div class="card-title">ไฟช่องที่ ${i}</div>
-              <div id="text_status_${i}" class="card-subtitle">สถานะ: ปิด</div>
-            </div>
-          </div>
-          <div class="btn-group">
-            <button class="btn relay-btn on" onclick="setRelay(${i}, 'ON')">เปิด</button>
-            <button class="btn relay-btn off" onclick="setRelay(${i}, 'OFF')">ปิด</button>
-          </div>
-        </div>
-
-        <div class="schedule-box">
-          <div class="sched-item">
-            <span class="sched-label">เวลาเปิด:</span>
-            <div class="sched-controls">
-              <input type="time" id="time_on_${i}">
-              <button class="btn btn-icon" onclick="saveSchedule(${i}, 'on')">บันทึก</button>
-              <button class="btn btn-icon btn-del" onclick="clearSchedule(${i}, 'on')">ลบ</button>
-              <span id="badge_on_${i}" class="tag-state">ไม่ได้ตั้ง</span>
-            </div>
-          </div>
-          <div class="sched-item">
-            <span class="sched-label">เวลาปิด:</span>
-            <div class="sched-controls">
-              <input type="time" id="time_off_${i}">
-              <button class="btn btn-icon" onclick="saveSchedule(${i}, 'off')">บันทึก</button>
-              <button class="btn btn-icon btn-del" onclick="clearSchedule(${i}, 'off')">ลบ</button>
-              <span id="badge_off_${i}" class="tag-state">ไม่ได้ตั้ง</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function connectMQTT() {
-    client.connect({
-      useSSL: true,
-      userName: MQTT_USER,
-      password: MQTT_PASS,
-      onSuccess: () => {
-        document.getElementById("connStatus").className = "badge connected";
-        document.getElementById("connText").innerText = "Online";
-
-        client.subscribe("myroom/relay/+/state");
-        client.subscribe("myroom/schedule/+/+/state");
-        client.subscribe("myroom/buzzer/state");
-      },
-      onFailure: (err) => {
-        document.getElementById("connStatus").className = "badge disconnected";
-        document.getElementById("connText").innerText = "Offline";
-        setTimeout(connectMQTT, 5000);
+    // --- 2. ระบบเสียงเตือน (Web Audio API) ---
+    function playBeepSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // โน้ต A5
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch (e) {
+        console.warn("Audio Context blocked:", e);
       }
-    });
-  }
+    }
 
-  client.onConnectionLost = () => {
-    document.getElementById("connStatus").className = "badge disconnected";
-    document.getElementById("connText").innerText = "Reconnecting...";
-    setTimeout(connectMQTT, 3000);
-  };
+    // --- 3. ระบบ Web Push Notification ---
+    function checkNotificationStatus() {
+      const btnText = document.getElementById("notifyBtnText");
+      if (!("Notification" in window)) {
+        btnText.innerText = "ไม่รองรับแจ้งเตือน";
+        return;
+      }
+      if (Notification.permission === "granted") {
+        btnText.innerText = "เปิดแจ้งเตือนแล้ว";
+      } else if (Notification.permission === "denied") {
+        btnText.innerText = "ถูกบล็อกแจ้งเตือน";
+      }
+    }
 
-  client.onMessageArrived = (message) => {
-    const topic = message.destinationName;
-    const payload = message.payloadString;
+    function requestNotificationPermission() {
+      if (!("Notification" in window)) {
+        alert("เบราว์เซอร์นี้ไม่รองรับระบบการแจ้งเตือน");
+        return;
+      }
+      Notification.requestPermission().then((permission) => {
+        checkNotificationStatus();
+        if (permission === "granted") {
+          showNotification("SmartHome KMITL", "เปิดระบบแจ้งเตือนสำเร็จแล้ว 🚀");
+        }
+      });
+    }
 
-    // สถานะไฟ 1-4
-    const rMatch = topic.match(/myroom\/relay\/(\d+)\/state/);
-    if (rMatch) {
-      const id = rMatch[1];
-      const light = document.getElementById(`light_${id}`);
-      const text = document.getElementById(`text_status_${id}`);
-      if (payload === "ON") {
-        light.classList.add("on");
-        text.innerText = "สถานะ: เปิด";
-        text.style.color = "#34d399";
+    function showNotification(title, message) {
+      playBeepSound();
+      if (Notification.permission === "granted") {
+        new Notification(title, {
+          body: message,
+          icon: "https://cdn-icons-png.flaticon.com/512/702/702814.png"
+        });
+      }
+      addLog(`[Notify] ${title}: ${message}`);
+    }
+
+    function addLog(msg) {
+      const logArea = document.getElementById("logArea");
+      const timeStr = new Date().toLocaleTimeString();
+      const line = document.createElement("div");
+      line.innerText = `[${timeStr}] ${msg}`;
+      logArea.prepend(line);
+    }
+
+    // --- 4. เชื่อมต่อ MQTT ผ่าน WebSocket ---
+    function connectMqtt() {
+      client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
+      client.onConnectionLost = onConnectionLost;
+      client.onMessageArrived = onMessageArrived;
+
+      const options = {
+        useSSL: true,
+        userName: MQTT_USER,
+        password: MQTT_PASS,
+        onSuccess: onConnectSuccess,
+        onFailure: onConnectFailure
+      };
+
+      client.connect(options);
+    }
+
+    function onConnectSuccess() {
+      document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+      document.getElementById("mqttStatusText").innerText = "เชื่อมต่อ HiveMQ Cloud สำเร็จ";
+      addLog("เชื่อมต่อ HiveMQ Cloud สำเร็จ");
+
+      // Subscribe สถานะไฟ, Buzzer และ Schedule
+      client.subscribe("myroom/relay/+/state");
+      client.subscribe("myroom/buzzer/state");
+      client.subscribe("myroom/schedule/+/on/state");
+      client.subscribe("myroom/schedule/+/off/state");
+    }
+
+    function onConnectFailure(err) {
+      document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+      document.getElementById("mqttStatusText").innerText = "เชื่อมต่อล้มเหลว กำลังลองใหม่...";
+      addLog(`MQTT Error: ${err.errorMessage}`);
+      setTimeout(connectMqtt, 5000);
+    }
+
+    function onConnectionLost(response) {
+      if (response.errorCode !== 0) {
+        document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+        document.getElementById("mqttStatusText").innerText = "การเชื่อมต่อหลุด...";
+        addLog(`Connection Lost: ${response.errorMessage}`);
+        setTimeout(connectMqtt, 3000);
+      }
+    }
+
+    function sendMqtt(topic, payload) {
+      if (client && client.isConnected()) {
+        const message = new Paho.MQTT.Message(payload);
+        message.destinationName = topic;
+        client.send(message);
       } else {
-        light.classList.remove("on");
-        text.innerText = "สถานะ: ปิด";
-        text.style.color = "var(--text-muted)";
+        alert("ยังไม่ได้เชื่อมต่อ MQTT Broker!");
       }
     }
 
-    // สถานะ Buzzer
-    if (topic === "myroom/buzzer/state") {
-      isBuzzerOn = (payload === "ON");
-      const btn = document.getElementById("buzzerToggle");
-      const icon = document.getElementById("buzzerIcon");
-      const text = document.getElementById("buzzerText");
-      if (isBuzzerOn) {
-        btn.classList.add("active");
-        icon.innerText = "🔔";
-        text.innerText = "เสียง: เปิด";
+    // --- 5. จัดการข้อความที่ได้รับ (MQTT Callback) ---
+    function onMessageArrived(message) {
+      const topic = message.destinationName;
+      const payload = message.payloadString;
+
+      // ตรวจจับสถานะ Relay: myroom/relay/{1-4}/state
+      const relayMatch = topic.match(/myroom\/relay\/(\d+)\/state/);
+      if (relayMatch) {
+        const ch = parseInt(relayMatch[1]);
+        const isOn = (payload === "ON");
+        relayStates[ch] = isOn;
+        updateRelayUI(ch, isOn);
+
+        // ยิง Notification เมื่อสถานะเปลี่ยน (ข้ามตอนรับค่าแรกสุดตอนเปิดหน้าเว็บ)
+        if (lastKnownStates[ch] !== undefined && lastKnownStates[ch] !== payload) {
+          const actionText = isOn ? "เปิดแล้ว 💡" : "ดับแล้ว ⚪";
+          showNotification(`หลอดไฟช่องที่ ${ch}`, `สถานะ: ${actionText}`);
+        }
+        lastKnownStates[ch] = payload;
+      }
+
+      // ตรวจจับสถานะ Buzzer: myroom/buzzer/state
+      if (topic === "myroom/buzzer/state") {
+        buzzerState = (payload === "ON");
+        document.getElementById("buzzerStatus").innerText = `สถานะ: ${buzzerState ? "เปิดเสียง" : "ปิดเสียง"}`;
+      }
+
+      // ตรวจจับการตอบกลับ Schedule
+      const schedOnMatch = topic.match(/myroom\/schedule\/(\d+)\/on\/state/);
+      if (schedOnMatch) {
+        const ch = schedOnMatch[1];
+        const el = document.getElementById(`onTime${ch}`);
+        if (el && payload !== "OFF") el.value = payload;
+      }
+      const schedOffMatch = topic.match(/myroom\/schedule\/(\d+)\/off\/state/);
+      if (schedOffMatch) {
+        const ch = schedOffMatch[1];
+        const el = document.getElementById(`offTime${ch}`);
+        if (el && payload !== "OFF") el.value = payload;
+      }
+    }
+
+    // --- 6. UI Updates & Button Handlers ---
+    function updateRelayUI(ch, isOn) {
+      const btn = document.getElementById(`toggleBtn${ch}`);
+      const bulb = document.getElementById(`bulbIcon${ch}`);
+      if (!btn || !bulb) return;
+
+      if (isOn) {
+        btn.innerText = "เปิดอยู่ (กดเพื่อปิด)";
+        btn.className = "px-4 py-2 rounded-xl text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 active:scale-95 transition-all";
+        bulb.className = "w-10 h-10 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center text-xl shadow-lg shadow-amber-400/40 transition-all";
+        bulb.innerText = "💡";
       } else {
-        btn.classList.remove("active");
-        icon.innerText = "🔕";
-        text.innerText = "เสียง: ปิด";
+        btn.innerText = "ปิดอยู่ (กดเพื่อเปิด)";
+        btn.className = "px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 active:scale-95 transition-all";
+        bulb.className = "w-10 h-10 rounded-xl bg-slate-700 text-slate-400 flex items-center justify-center text-xl transition-all";
+        bulb.innerText = "⚪";
       }
     }
 
-    // สถานะเวลาที่ตั้งไว้
-    const sMatch = topic.match(/myroom\/schedule\/(\d+)\/(on|off)\/state/);
-    if (sMatch) {
-      const id = sMatch[1];
-      const type = sMatch[2];
-      const badge = document.getElementById(`badge_${type}_${id}`);
-      const input = document.getElementById(`time_${type}_${id}`);
-      if (payload === "OFF" || payload === "") {
-        badge.innerText = "ไม่ได้ตั้ง";
-        badge.classList.remove("active");
-        input.value = "";
-      } else {
-        badge.innerText = payload;
-        badge.classList.add("active");
-        input.value = payload;
-      }
+    function toggleRelay(ch) {
+      const nextState = !relayStates[ch];
+      sendMqtt(`myroom/relay/${ch}/set`, nextState ? "ON" : "OFF");
     }
-  };
 
-  function publishMsg(topic, msg) {
-    if (!client.isConnected()) return;
-    const m = new Paho.MQTT.Message(msg);
-    m.destinationName = topic;
-    m.retained = true;
-    client.send(m);
-  }
-
-  function setRelay(id, action) {
-    publishMsg(`myroom/relay/${id}/set`, action);
-  }
-
-  function setAllRelays(action) {
-    publishMsg(`myroom/relay/all/set`, action);
-  }
-
-  function toggleBuzzer() {
-    const nextState = isBuzzerOn ? "OFF" : "ON";
-    publishMsg("myroom/buzzer/set", nextState);
-  }
-
-  function saveSchedule(id, type) {
-    const val = document.getElementById(`time_${type}_${id}`).value;
-    if (!val) return;
-    publishMsg(`myroom/schedule/${id}/${type}`, val);
-  }
-
-  function clearSchedule(id, type) {
-    publishMsg(`myroom/schedule/${id}/${type}`, "OFF");
-  }
-
-  function saveMasterSchedule(type) {
-    const val = document.getElementById(`time_master_${type}`).value;
-    if (!val) {
-      alert("กรุณาเลือกเวลาก่อน");
-      return;
+    function toggleBuzzer() {
+      sendMqtt("myroom/buzzer/set", buzzerState ? "OFF" : "ON");
     }
-    for (let i = 1; i <= 4; i++) {
-      publishMsg(`myroom/schedule/${i}/${type}`, val);
+
+    function updateSchedule(ch, type) {
+      const el = document.getElementById(`${type}Time${ch}`);
+      const val = el.value || "OFF";
+      sendMqtt(`myroom/schedule/${ch}/${type}`, val);
+      addLog(`ตั้งเวลาช่อง ${ch} (${type}): ${val}`);
     }
-    const badge = document.getElementById(`badge_master_${type}`);
-    badge.innerText = val;
-    badge.classList.add("active");
-  }
 
-  function clearMasterSchedule(type) {
-    for (let i = 1; i <= 4; i++) {
-      publishMsg(`myroom/schedule/${i}/${type}`, "OFF");
-    }
-    const badge = document.getElementById(`badge_master_${type}`);
-    badge.innerText = "ไม่ได้ตั้ง";
-    badge.classList.remove("active");
-    document.getElementById(`time_master_${type}`).value = "";
-  }
-
-  connectMQTT();
-</script>
-
+    // Start App
+    window.onload = function() {
+      checkNotificationStatus();
+      connectMqtt();
+    };
+  </script>
 </body>
 </html>
