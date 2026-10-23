@@ -83,7 +83,6 @@
             ...
           </button>
         </div>
-        <!-- Schedule Form -->
         <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
             <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
@@ -188,19 +187,22 @@
   </div>
 
   <script>
-    // --- 1. การตั้งค่า HiveMQ Cloud WebSocket (Port 8884) ---
+    // --- 1. ตั้งค่า HiveMQ Cloud WebSocket (Port 8884) ---
     const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
-    const MQTT_PORT = 8884; // พอร์ต Secure WebSocket (WSS) ของ HiveMQ Cloud
+    const MQTT_PORT = 8884;
     const MQTT_USER = "BabyTrout";
     const MQTT_PASS = "2644@8246";
-    const CLIENT_ID = "WebClient_" + Math.random().toString(16).substr(2, 8);
+    
+    // สุ่ม Client ID ใหม่ทุกครั้งเพื่อป้องกันการชนกันระหว่างเปิดหลายแท็บ/เครื่อง
+    const CLIENT_ID = "WebClient_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now();
 
     let client = null;
     let relayStates = { 1: false, 2: false, 3: false, 4: false };
-    let lastKnownStates = {}; // ใช้ตรวจจับการเปลี่ยนสถานะเพื่อยิง Notification
+    let lastKnownStates = {};
     let buzzerState = true;
+    let isConnecting = false;
 
-    // --- 2. ระบบเสียงเตือน (Web Audio API) ---
+    // --- 2. เสียงเตือน (Web Audio API) ---
     function playBeepSound() {
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -209,7 +211,7 @@
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.type = "sine";
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime); // โน้ต A5
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
         osc.start();
@@ -265,8 +267,15 @@
       logArea.prepend(line);
     }
 
-    // --- 4. เชื่อมต่อ MQTT ผ่าน WebSocket ---
+    // --- 4. การเชื่อมต่อ MQTT พร้อมระบบกันหลุดบนมือถือ ---
     function connectMqtt() {
+      if (client && client.isConnected()) return;
+      if (isConnecting) return;
+
+      isConnecting = true;
+      document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+      document.getElementById("mqttStatusText").innerText = "กำลังเชื่อมต่อ HiveMQ...";
+
       client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
       client.onConnectionLost = onConnectionLost;
       client.onMessageArrived = onMessageArrived;
@@ -275,6 +284,9 @@
         useSSL: true,
         userName: MQTT_USER,
         password: MQTT_PASS,
+        keepAliveInterval: 30, // ส่ง Ping ทุก 30 วินาที ป้องกันมือถือตัด Socket
+        cleanSession: true,
+        timeout: 10,
         onSuccess: onConnectSuccess,
         onFailure: onConnectFailure
       };
@@ -283,11 +295,11 @@
     }
 
     function onConnectSuccess() {
+      isConnecting = false;
       document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
       document.getElementById("mqttStatusText").innerText = "เชื่อมต่อ HiveMQ Cloud สำเร็จ";
       addLog("เชื่อมต่อ HiveMQ Cloud สำเร็จ");
 
-      // Subscribe สถานะไฟ, Buzzer และ Schedule
       client.subscribe("myroom/relay/+/state");
       client.subscribe("myroom/buzzer/state");
       client.subscribe("myroom/schedule/+/on/state");
@@ -295,19 +307,21 @@
     }
 
     function onConnectFailure(err) {
+      isConnecting = false;
       document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-rose-500";
       document.getElementById("mqttStatusText").innerText = "เชื่อมต่อล้มเหลว กำลังลองใหม่...";
       addLog(`MQTT Error: ${err.errorMessage}`);
-      setTimeout(connectMqtt, 5000);
+      setTimeout(connectMqtt, 4000);
     }
 
     function onConnectionLost(response) {
+      isConnecting = false;
+      document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+      document.getElementById("mqttStatusText").innerText = "การเชื่อมต่อหลุด...";
       if (response.errorCode !== 0) {
-        document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
-        document.getElementById("mqttStatusText").innerText = "การเชื่อมต่อหลุด...";
         addLog(`Connection Lost: ${response.errorMessage}`);
-        setTimeout(connectMqtt, 3000);
       }
+      setTimeout(connectMqtt, 3000);
     }
 
     function sendMqtt(topic, payload) {
@@ -316,7 +330,8 @@
         message.destinationName = topic;
         client.send(message);
       } else {
-        alert("ยังไม่ได้เชื่อมต่อ MQTT Broker!");
+        alert("ยังไม่ได้เชื่อมต่อ MQTT Broker! กำลังพยายามเชื่อมต่อใหม่...");
+        connectMqtt();
       }
     }
 
@@ -325,7 +340,6 @@
       const topic = message.destinationName;
       const payload = message.payloadString;
 
-      // ตรวจจับสถานะ Relay: myroom/relay/{1-4}/state
       const relayMatch = topic.match(/myroom\/relay\/(\d+)\/state/);
       if (relayMatch) {
         const ch = parseInt(relayMatch[1]);
@@ -333,7 +347,6 @@
         relayStates[ch] = isOn;
         updateRelayUI(ch, isOn);
 
-        // ยิง Notification เมื่อสถานะเปลี่ยน (ข้ามตอนรับค่าแรกสุดตอนเปิดหน้าเว็บ)
         if (lastKnownStates[ch] !== undefined && lastKnownStates[ch] !== payload) {
           const actionText = isOn ? "เปิดแล้ว 💡" : "ดับแล้ว ⚪";
           showNotification(`หลอดไฟช่องที่ ${ch}`, `สถานะ: ${actionText}`);
@@ -341,13 +354,11 @@
         lastKnownStates[ch] = payload;
       }
 
-      // ตรวจจับสถานะ Buzzer: myroom/buzzer/state
       if (topic === "myroom/buzzer/state") {
         buzzerState = (payload === "ON");
         document.getElementById("buzzerStatus").innerText = `สถานะ: ${buzzerState ? "เปิดเสียง" : "ปิดเสียง"}`;
       }
 
-      // ตรวจจับการตอบกลับ Schedule
       const schedOnMatch = topic.match(/myroom\/schedule\/(\d+)\/on\/state/);
       if (schedOnMatch) {
         const ch = schedOnMatch[1];
@@ -396,6 +407,16 @@
       sendMqtt(`myroom/schedule/${ch}/${type}`, val);
       addLog(`ตั้งเวลาช่อง ${ch} (${type}): ${val}`);
     }
+
+    // ต่อใหม่อัตโนมัติเมื่อผู้ใช้สลับแอปกลับมา หรือปลดล็อกหน้าจอมือถือ
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === "visible") {
+        if (!client || !client.isConnected()) {
+          console.log("Wake up, reconnecting MQTT...");
+          connectMqtt();
+        }
+      }
+    });
 
     // Start App
     window.onload = function() {
