@@ -46,10 +46,10 @@
           <p class="text-xs text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
         </div>
         <div class="flex gap-2">
-          <button onclick="sendMqtt('myroom/relay/all/set', 'ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+          <button onclick="triggerMaster('ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
             เปิดหมด
           </button>
-          <button onclick="sendMqtt('myroom/relay/all/set', 'OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+          <button onclick="triggerMaster('OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
             ปิดหมด
           </button>
         </div>
@@ -199,9 +199,11 @@
     let lastKnownStates = {};
     let buzzerState = true;
 
-    // ตัวแปรสำหรับหน่วงเวลารวมกลุ่ม Notification
+    // ตัวแปรสำหรับจัดการกลุ่มการแจ้งเตือน
     let notifyBatchTimer = null;
     let changedChannels = [];
+    let isMasterAction = false;
+    let masterActionTimer = null;
 
     // --- 2. เสียงเตือน (Web Audio API) ---
     function playBeepSound() {
@@ -322,6 +324,21 @@
       }
     }
 
+    // สั่ง Master จากหน้าเว็บ (ดักจับเพื่อแจ้งเตือนครั้งเดียว)
+    function triggerMaster(state) {
+      isMasterAction = true;
+      if (masterActionTimer) clearTimeout(masterActionTimer);
+      masterActionTimer = setTimeout(() => { isMasterAction = false; }, 1500);
+
+      if (state === 'ON') {
+        showNotification("ระบบไฟห้อง", "เปิดไฟทั้งหมดแล้ว 💡");
+      } else {
+        showNotification("ระบบไฟห้อง", "ปิดไฟทั้งหมดแล้ว ⚪");
+      }
+
+      sendMqtt('myroom/relay/all/set', state);
+    }
+
     // --- 5. จัดการข้อความที่ได้รับ และรวบยอดการแจ้งเตือน ---
     function onMessageArrived(message) {
       const topic = message.destinationName;
@@ -334,15 +351,15 @@
         relayStates[ch] = isOn;
         updateRelayUI(ch, isOn);
 
-        // ตรวจจับเฉพาะกรณีที่สถานะเปลี่ยนแปลงจริง (ข้ามสถานะแรกสุดตอนโหลดหน้าเว็บ)
+        // ตรวจสอบว่ามีการเปลี่ยนแปลงสถานะจริง
         if (lastKnownStates[ch] !== undefined && lastKnownStates[ch] !== payload) {
           changedChannels.push({ ch: ch, state: isOn });
 
-          // หน่วงเวลา 250ms เพื่อรวบยอดหากมีการเปิด/ปิดพร้อมกันหลายดวง
+          // หน่วงเวลา 350ms เพื่อรวบยอดหากสถานะหลายช่องตอบกลับมาพร้อมกัน
           if (notifyBatchTimer) clearTimeout(notifyBatchTimer);
           notifyBatchTimer = setTimeout(() => {
             handleBatchedNotification();
-          }, 250);
+          }, 350);
         }
         lastKnownStates[ch] = payload;
       }
@@ -366,23 +383,24 @@
       }
     }
 
-    // ฟังก์ชันสรุปข้อความแจ้งเตือน (รวบยอดเมื่อเปิด/ปิดทั้งหมด)
     function handleBatchedNotification() {
       if (changedChannels.length === 0) return;
 
-      const allOn = Object.values(relayStates).every(st => st === true);
-      const allOff = Object.values(relayStates).every(st => st === false);
+      // ถ้าเป็นการกดจากปุ่ม Master บนเว็บ แจ้งเตือนไปแล้วตั้งแต่ตอนกด ให้ข้ามเลย
+      if (isMasterAction) {
+        changedChannels = [];
+        return;
+      }
 
-      // ถ้าทุกช่องเปิดครบหมด
-      if (allOn && changedChannels.some(item => item.state === true)) {
+      const allNewStatesAreOn = changedChannels.every(item => item.state === true);
+      const allNewStatesAreOff = changedChannels.every(item => item.state === false);
+
+      // กรณีมีมากกว่า 1 ดวงเปลี่ยนไปทิศทางเดียวกันพร้อมกัน (เช่น กดปุ่ม Master บนบอร์ด ESP32)
+      if (changedChannels.length >= 2 && allNewStatesAreOn) {
         showNotification("ระบบไฟห้อง", "เปิดไฟทั้งหมดแล้ว 💡");
-      } 
-      // ถ้าทุกช่องปิดหมด
-      else if (allOff && changedChannels.some(item => item.state === false)) {
+      } else if (changedChannels.length >= 2 && allNewStatesAreOff) {
         showNotification("ระบบไฟห้อง", "ปิดไฟทั้งหมดแล้ว ⚪");
-      } 
-      // กรณีเปิดหรือปิดเป็นรายช่องตามปกติ
-      else {
+      } else {
         changedChannels.forEach(item => {
           const actionText = item.state ? "เปิดแล้ว 💡" : "ดับแล้ว ⚪";
           showNotification(`หลอดไฟช่องที่ ${item.ch}`, `สถานะ: ${actionText}`);
