@@ -46,10 +46,10 @@
           <p class="text-xs text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
         </div>
         <div class="flex gap-2">
-          <button onclick="triggerMasterAction('ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+          <button onclick="sendMqtt('myroom/relay/all/set', 'ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
             เปิดหมด
           </button>
-          <button onclick="triggerMasterAction('OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+          <button onclick="sendMqtt('myroom/relay/all/set', 'OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
             ปิดหมด
           </button>
         </div>
@@ -192,14 +192,16 @@
     const MQTT_PORT = 8884;
     const MQTT_USER = "BabyTrout";
     const MQTT_PASS = "2644@8246";
-    const CLIENT_ID = "WebClient_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now();
+    const CLIENT_ID = "WebClient_" + Math.random().toString(16).substr(2, 8);
 
     let client = null;
     let relayStates = { 1: false, 2: false, 3: false, 4: false };
     let lastKnownStates = {};
     let buzzerState = true;
-    let isMasterTriggered = false;
-    let masterTriggerTimer = null;
+
+    // ตัวแปรสำหรับหน่วงเวลารวมกลุ่ม Notification
+    let notifyBatchTimer = null;
+    let changedChannels = [];
 
     // --- 2. เสียงเตือน (Web Audio API) ---
     function playBeepSound() {
@@ -211,11 +213,13 @@
         gain.connect(audioCtx.destination);
         osc.type = "sine";
         osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.2);
-      } catch (e) {}
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch (e) {
+        console.warn("Audio Context blocked:", e);
+      }
     }
 
     // --- 3. ระบบ Web Push Notification ---
@@ -233,7 +237,10 @@
     }
 
     function requestNotificationPermission() {
-      if (!("Notification" in window)) return;
+      if (!("Notification" in window)) {
+        alert("เบราว์เซอร์นี้ไม่รองรับระบบการแจ้งเตือน");
+        return;
+      }
       Notification.requestPermission().then((permission) => {
         checkNotificationStatus();
         if (permission === "granted") {
@@ -261,13 +268,8 @@
       logArea.prepend(line);
     }
 
-    // --- 4. การเชื่อมต่อ MQTT ---
+    // --- 4. เชื่อมต่อ MQTT ผ่าน WebSocket ---
     function connectMqtt() {
-      if (client && client.isConnected()) return;
-
-      document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
-      document.getElementById("mqttStatusText").innerText = "กำลังเชื่อมต่อ HiveMQ...";
-
       client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
       client.onConnectionLost = onConnectionLost;
       client.onMessageArrived = onMessageArrived;
@@ -276,9 +278,6 @@
         useSSL: true,
         userName: MQTT_USER,
         password: MQTT_PASS,
-        keepAliveInterval: 30,
-        cleanSession: true,
-        timeout: 10,
         onSuccess: onConnectSuccess,
         onFailure: onConnectFailure
       };
@@ -301,16 +300,16 @@
       document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-rose-500";
       document.getElementById("mqttStatusText").innerText = "เชื่อมต่อล้มเหลว กำลังลองใหม่...";
       addLog(`MQTT Error: ${err.errorMessage}`);
-      setTimeout(connectMqtt, 4000);
+      setTimeout(connectMqtt, 5000);
     }
 
     function onConnectionLost(response) {
-      document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
-      document.getElementById("mqttStatusText").innerText = "การเชื่อมต่อหลุด...";
       if (response.errorCode !== 0) {
+        document.getElementById("mqttStatusDot").className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+        document.getElementById("mqttStatusText").innerText = "การเชื่อมต่อหลุด...";
         addLog(`Connection Lost: ${response.errorMessage}`);
+        setTimeout(connectMqtt, 3000);
       }
-      setTimeout(connectMqtt, 3000);
     }
 
     function sendMqtt(topic, payload) {
@@ -319,29 +318,11 @@
         message.destinationName = topic;
         client.send(message);
       } else {
-        addLog("⚠️ ยังไม่เชื่อมต่อ MQTT กำลังพยายามเชื่อมต่อใหม่...");
-        connectMqtt();
+        alert("ยังไม่ได้เชื่อมต่อ MQTT Broker!");
       }
     }
 
-    // --- 5. จัดการ Master Action และการแจ้งเตือนแบบรวม ---
-    function triggerMasterAction(state) {
-      isMasterTriggered = true;
-      if (masterTriggerTimer) clearTimeout(masterTriggerTimer);
-      masterTriggerTimer = setTimeout(() => {
-        isMasterTriggered = false;
-      }, 2000);
-
-      sendMqtt('myroom/relay/all/set', state);
-
-      if (state === 'ON') {
-        showNotification("ระบบไฟห้อง", "เปิดไฟทั้งหมดแล้ว 💡");
-      } else {
-        showNotification("ระบบไฟห้อง", "ปิดไฟทั้งหมดแล้ว ⚪");
-      }
-    }
-
-    // --- 6. จัดการข้อความที่ได้รับ (MQTT Callback) ---
+    // --- 5. จัดการข้อความที่ได้รับ และรวบยอดการแจ้งเตือน ---
     function onMessageArrived(message) {
       const topic = message.destinationName;
       const payload = message.payloadString;
@@ -353,12 +334,15 @@
         relayStates[ch] = isOn;
         updateRelayUI(ch, isOn);
 
-        // ถ้าไม่ได้กด Master ให้แจ้งเตือนรายช่องตามปกติ
-        if (!isMasterTriggered) {
-          if (lastKnownStates[ch] !== undefined && lastKnownStates[ch] !== payload) {
-            const actionText = isOn ? "เปิดแล้ว 💡" : "ดับแล้ว ⚪";
-            showNotification(`หลอดไฟช่องที่ ${ch}`, `สถานะ: ${actionText}`);
-          }
+        // ตรวจจับเฉพาะกรณีที่สถานะเปลี่ยนแปลงจริง (ข้ามสถานะแรกสุดตอนโหลดหน้าเว็บ)
+        if (lastKnownStates[ch] !== undefined && lastKnownStates[ch] !== payload) {
+          changedChannels.push({ ch: ch, state: isOn });
+
+          // หน่วงเวลา 250ms เพื่อรวบยอดหากมีการเปิด/ปิดพร้อมกันหลายดวง
+          if (notifyBatchTimer) clearTimeout(notifyBatchTimer);
+          notifyBatchTimer = setTimeout(() => {
+            handleBatchedNotification();
+          }, 250);
         }
         lastKnownStates[ch] = payload;
       }
@@ -382,7 +366,33 @@
       }
     }
 
-    // --- 7. UI Updates & Button Handlers ---
+    // ฟังก์ชันสรุปข้อความแจ้งเตือน (รวบยอดเมื่อเปิด/ปิดทั้งหมด)
+    function handleBatchedNotification() {
+      if (changedChannels.length === 0) return;
+
+      const allOn = Object.values(relayStates).every(st => st === true);
+      const allOff = Object.values(relayStates).every(st => st === false);
+
+      // ถ้าทุกช่องเปิดครบหมด
+      if (allOn && changedChannels.some(item => item.state === true)) {
+        showNotification("ระบบไฟห้อง", "เปิดไฟทั้งหมดแล้ว 💡");
+      } 
+      // ถ้าทุกช่องปิดหมด
+      else if (allOff && changedChannels.some(item => item.state === false)) {
+        showNotification("ระบบไฟห้อง", "ปิดไฟทั้งหมดแล้ว ⚪");
+      } 
+      // กรณีเปิดหรือปิดเป็นรายช่องตามปกติ
+      else {
+        changedChannels.forEach(item => {
+          const actionText = item.state ? "เปิดแล้ว 💡" : "ดับแล้ว ⚪";
+          showNotification(`หลอดไฟช่องที่ ${item.ch}`, `สถานะ: ${actionText}`);
+        });
+      }
+
+      changedChannels = [];
+    }
+
+    // --- 6. UI Updates & Button Handlers ---
     function updateRelayUI(ch, isOn) {
       const btn = document.getElementById(`toggleBtn${ch}`);
       const bulb = document.getElementById(`bulbIcon${ch}`);
