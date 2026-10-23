@@ -253,11 +253,15 @@
 
     function showNotification(title, message) {
       playBeepSound();
-      if (Notification.permission === "granted") {
-        new Notification(title, {
-          body: message,
-          icon: "https://cdn-icons-png.flaticon.com/512/702/702814.png"
-        });
+      try {
+        if (window.Notification && Notification.permission === "granted") {
+          new Notification(title, {
+            body: message,
+            icon: "https://cdn-icons-png.flaticon.com/512/702/702814.png"
+          });
+        }
+      } catch (e) {
+        console.warn("Notification error:", e);
       }
       addLog(`[Notify] ${title}: ${message}`);
     }
@@ -324,19 +328,26 @@
       }
     }
 
-    // สั่ง Master จากหน้าเว็บ (ดักจับเพื่อแจ้งเตือนครั้งเดียว)
+    // สั่ง Master จากหน้าเว็บ (ส่งคำสั่งก่อนทันที แล้วค่อยสั่งแจ้งเตือน)
     function triggerMaster(state) {
+      // 1. ส่งคำสั่ง MQTT ทันที
+      sendMqtt('myroom/relay/all/set', state);
+
+      // 2. ตั้งสถานะป้องกันการแจ้งเตือนรายช่องซ้ำซ้อน
       isMasterAction = true;
       if (masterActionTimer) clearTimeout(masterActionTimer);
       masterActionTimer = setTimeout(() => { isMasterAction = false; }, 1500);
 
-      if (state === 'ON') {
-        showNotification("ระบบไฟห้อง", "เปิดไฟทั้งหมดแล้ว 💡");
-      } else {
-        showNotification("ระบบไฟห้อง", "ปิดไฟทั้งหมดแล้ว ⚪");
+      // 3. แสดงการแจ้งเตือน
+      try {
+        if (state === 'ON') {
+          showNotification("ระบบไฟห้อง", "เปิดไฟทั้งหมดแล้ว 💡");
+        } else {
+          showNotification("ระบบไฟห้อง", "ปิดไฟทั้งหมดแล้ว ⚪");
+        }
+      } catch (err) {
+        console.warn("Notification error:", err);
       }
-
-      sendMqtt('myroom/relay/all/set', state);
     }
 
     // --- 5. จัดการข้อความที่ได้รับ และรวบยอดการแจ้งเตือน ---
@@ -386,7 +397,7 @@
     function handleBatchedNotification() {
       if (changedChannels.length === 0) return;
 
-      // ถ้าเป็นการกดจากปุ่ม Master บนเว็บ แจ้งเตือนไปแล้วตั้งแต่ตอนกด ให้ข้ามเลย
+      // ถ้าเป็นการกดจากปุ่ม Master บนเว็บ จะแจ้งเตือนไปแล้วตั้งแต่ตอนกด ให้ข้ามเลย
       if (isMasterAction) {
         changedChannels = [];
         return;
