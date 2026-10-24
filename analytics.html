@@ -95,13 +95,36 @@
     let allLogs = [];
     let currentFilter = 'ALL';
 
+    // ฟังก์ชันส่งคำขอแบบ JSONP ข้ามปัญหา CORS ของเบราว์เซอร์ 100%
+    function requestJSONP(url) {
+      return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
+        const script = document.createElement('script');
+        
+        window[callbackName] = function(data) {
+          delete window[callbackName];
+          document.body.removeChild(script);
+          resolve(data);
+        };
+
+        script.onerror = function() {
+          delete window[callbackName];
+          document.body.removeChild(script);
+          reject(new Error("JSONP request failed"));
+        };
+
+        const separator = url.indexOf('?') >= 0 ? '&' : '?';
+        script.src = url + separator + 'callback=' + callbackName;
+        document.body.appendChild(script);
+      });
+    }
+
     function toggleAuthModal() {
       const modal = document.getElementById("authModal");
       modal.classList.toggle("hidden");
       modal.classList.toggle("flex");
     }
 
-    // สมัครสมาชิก (ส่งแบบ GET ไม่โดน Browser บล็อก CORS)
     async function handleRegister() {
       const u = document.getElementById("authUsername").value.trim();
       const p = document.getElementById("authPassword").value.trim();
@@ -109,8 +132,7 @@
 
       try {
         const url = `${SCRIPT_URL}?action=register&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const data = await requestJSONP(url);
         alert(data.message);
       } catch (err) {
         console.error("Register Error:", err);
@@ -118,7 +140,6 @@
       }
     }
 
-    // เข้าสู่ระบบ (ส่งแบบ GET ไม่โดน Browser บล็อก CORS)
     async function handleLogin() {
       const u = document.getElementById("authUsername").value.trim();
       const p = document.getElementById("authPassword").value.trim();
@@ -126,8 +147,7 @@
 
       try {
         const url = `${SCRIPT_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const data = await requestJSONP(url);
         if (data.success) {
           localStorage.setItem("smarthome_user", data.username);
           updateUserUI();
@@ -161,10 +181,10 @@
       tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">กำลังดึงข้อมูลล่าสุด...</td></tr>`;
       
       try {
-        const res = await fetch(SCRIPT_URL);
-        const data = await res.json();
+        const url = `${SCRIPT_URL}?action=getLogs`;
+        const data = await requestJSONP(url);
         if (data.success) {
-          allLogs = data.logs.reverse(); // เอาประวัติล่าสุดขึ้นก่อน
+          allLogs = (data.logs || []).reverse();
           renderTable();
         }
       } catch (e) {
