@@ -49,7 +49,6 @@
             </button>
           </div>
         </div>
-        <!-- เพิ่มส่วนตั้งเวลาเปิด-ปิดทั้งหมด -->
         <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
             <label class="text-slate-400 block mb-1">เวลาเปิดทั้งหมด (Auto ON)</label>
@@ -74,7 +73,7 @@
       </div>
     </div>
 
-    <!-- 4 Relay Channels Grid -->
+    <!-- 4 Relay Channels Grid (ตัดส่วนแสดง GPIO ออกแล้ว) -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <!-- Channel 1 -->
       <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
@@ -83,7 +82,6 @@
             <div id="bulbIcon1" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
               <h3 class="font-semibold text-white">ไฟช่อง 1</h3>
-              <p class="text-xs text-slate-400">GPIO 38</p>
             </div>
           </div>
           <button id="toggleBtn1" onclick="toggleRelay(1)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
@@ -109,7 +107,6 @@
             <div id="bulbIcon2" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
               <h3 class="font-semibold text-white">ไฟช่อง 2</h3>
-              <p class="text-xs text-slate-400">GPIO 39</p>
             </div>
           </div>
           <button id="toggleBtn2" onclick="toggleRelay(2)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
@@ -135,7 +132,6 @@
             <div id="bulbIcon3" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
               <h3 class="font-semibold text-white">ไฟช่อง 3</h3>
-              <p class="text-xs text-slate-400">GPIO 17</p>
             </div>
           </div>
           <button id="toggleBtn3" onclick="toggleRelay(3)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
@@ -161,7 +157,6 @@
             <div id="bulbIcon4" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
               <h3 class="font-semibold text-white">ไฟช่อง 4</h3>
-              <p class="text-xs text-slate-400">GPIO 18</p>
             </div>
           </div>
           <button id="toggleBtn4" onclick="toggleRelay(4)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
@@ -239,7 +234,6 @@
       client.subscribe("myroom/buzzer/state");
       client.subscribe("myroom/schedule/+/on/state");
       client.subscribe("myroom/schedule/+/off/state");
-      // Subscribe Schedule สำหรับ All Relays
       client.subscribe("myroom/schedule/all/on/state");
       client.subscribe("myroom/schedule/all/off/state");
     }
@@ -289,7 +283,6 @@
         document.getElementById("buzzerStatus").innerText = `สถานะ: ${buzzerState ? "เปิดเสียง" : "ปิดเสียง"}`;
       }
 
-      // ตรวจสอบ Schedule รายช่อง
       const schedOnMatch = topic.match(/myroom\/schedule\/(\d+)\/on\/state/);
       if (schedOnMatch) {
         const ch = schedOnMatch[1];
@@ -303,7 +296,6 @@
         if (el && payload !== "OFF") el.value = payload;
       }
 
-      // ตรวจสอบ Schedule ของ Master (ทั้งหมด)
       if (topic === "myroom/schedule/all/on/state") {
         const el = document.getElementById("masterOnTime");
         if (el && payload !== "OFF") el.value = payload;
@@ -349,7 +341,6 @@
       addLog(`ตั้งเวลาช่อง ${ch} (${type}): ${val}`);
     }
 
-    // ตั้งเวลาเปิด-ปิด ทั้งหมด (Master Schedule)
     function updateMasterSchedule(type) {
       const el = document.getElementById(`master${type.charAt(0).toUpperCase() + type.slice(1)}Time`);
       const val = el.value || "OFF";
