@@ -202,12 +202,12 @@
     const MQTT_PASS = "2644@8246";
     const CLIENT_ID = "WebClient_" + Math.random().toString(16).substr(2, 8);
     
-    // Web App URL จาก Gmail ใหม่
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwn1VgjaEhPSTBRGUy-OFbaEcjgSFXtTcjFV7yShiN1ndKDBLd7Xo_gq_6Wu55RERvH/exec";
 
     let client = null;
-    let relayStates = { 1: false, 2: false, 3: false, 4: false };
+    let relayStates = { 1: null, 2: null, 3: null, 4: null };
     let buzzerState = true;
+    let isWebTriggered = { 1: false, 2: false, 3: false, 4: false, "All": false };
 
     function addLog(msg) {
       const logArea = document.getElementById("logArea");
@@ -218,8 +218,7 @@
     }
 
     // ฟังก์ชันส่ง Log ไปยัง Google Sheets
-    function logToGoogleSheets(channel, state) {
-      const currentUser = localStorage.getItem("smarthome_user") || "Web_Guest";
+    function logToGoogleSheets(channel, state, triggerBy, device) {
       fetch(SCRIPT_URL, {
         method: "POST",
         mode: "no-cors",
@@ -228,8 +227,8 @@
           action: "log",
           channel: String(channel),
           state: state,
-          triggerBy: currentUser,
-          device: "Web_Dashboard"
+          triggerBy: triggerBy,
+          device: device
         })
       }).catch(err => console.warn("Log failed:", err));
     }
@@ -290,7 +289,7 @@
       }
     }
 
-    // --- 3. จัดการข้อความที่ได้รับ ---
+    // --- 3. จัดการข้อความที่ได้รับ (ตรวจจับการกดปุ่มจากชิ้นงานจริง) ---
     function onMessageArrived(message) {
       const topic = message.destinationName;
       const payload = message.payloadString;
@@ -299,6 +298,17 @@
       if (relayMatch) {
         const ch = parseInt(relayMatch[1]);
         const isOn = (payload === "ON");
+
+        // ตรวจจับเมื่อสถานะเปลี่ยน
+        if (relayStates[ch] !== null && relayStates[ch] !== isOn) {
+          // ถ้าไม่ได้เกิดจากการคลิกบนหน้าเว็บ แสดงว่าเป็นการกดปุ่มที่ตัวชิ้นงาน
+          if (!isWebTriggered[ch] && !isWebTriggered["All"]) {
+            logToGoogleSheets(ch, payload, "Hardware_Button", "ESP32");
+          }
+        }
+
+        // รีเซ็ตตัวเช็กเว็บ
+        isWebTriggered[ch] = false;
         relayStates[ch] = isOn;
         updateRelayUI(ch, isOn);
         addLog(`หลอดไฟช่อง ${ch}: ${payload}`);
@@ -354,13 +364,20 @@
     function toggleRelay(ch) {
       const nextState = !relayStates[ch];
       const stateStr = nextState ? "ON" : "OFF";
+      isWebTriggered[ch] = true;
       sendMqtt(`myroom/relay/${ch}/set`, stateStr);
-      logToGoogleSheets(ch, stateStr);
+
+      const currentUser = localStorage.getItem("smarthome_user") || "Web_Guest";
+      logToGoogleSheets(ch, stateStr, currentUser, "Web_Dashboard");
     }
 
     function triggerMaster(state) {
+      isWebTriggered["All"] = true;
       sendMqtt('myroom/relay/all/set', state);
-      logToGoogleSheets("All", state);
+
+      const currentUser = localStorage.getItem("smarthome_user") || "Web_Guest";
+      logToGoogleSheets("All", state, currentUser, "Web_Dashboard");
+      setTimeout(() => { isWebTriggered["All"] = false; }, 2000);
     }
 
     function toggleBuzzer() {
