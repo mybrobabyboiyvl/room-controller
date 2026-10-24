@@ -9,7 +9,7 @@
   <!-- Paho MQTT WebSocket Client -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Prompt', sans-serif; }
@@ -33,19 +33,32 @@
 
     <!-- Master Control & Settings Panel -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <!-- Master Switch -->
-      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 flex items-center justify-between">
-        <div>
-          <h2 class="font-semibold text-lg text-white">Master Control</h2>
-          <p class="text-xs text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
+      <!-- Master Switch & Master Schedule -->
+      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="font-semibold text-lg text-white">Master Control</h2>
+            <p class="text-xs text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="sendMqtt('myroom/relay/all/set', 'ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+              เปิดหมด
+            </button>
+            <button onclick="sendMqtt('myroom/relay/all/set', 'OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+              ปิดหมด
+            </button>
+          </div>
         </div>
-        <div class="flex gap-2">
-          <button onclick="sendMqtt('myroom/relay/all/set', 'ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
-            เปิดหมด
-          </button>
-          <button onclick="sendMqtt('myroom/relay/all/set', 'OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
-            ปิดหมด
-          </button>
+        <!-- เพิ่มส่วนตั้งเวลาเปิด-ปิดทั้งหมด -->
+        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาเปิดทั้งหมด (Auto ON)</label>
+            <input type="time" id="masterOnTime" onchange="updateMasterSchedule('on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">เวลาปิดทั้งหมด (Auto OFF)</label>
+            <input type="time" id="masterOffTime" onchange="updateMasterSchedule('off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+          </div>
         </div>
       </div>
 
@@ -226,6 +239,9 @@
       client.subscribe("myroom/buzzer/state");
       client.subscribe("myroom/schedule/+/on/state");
       client.subscribe("myroom/schedule/+/off/state");
+      // Subscribe Schedule สำหรับ All Relays
+      client.subscribe("myroom/schedule/all/on/state");
+      client.subscribe("myroom/schedule/all/off/state");
     }
 
     function onConnectFailure(err) {
@@ -273,6 +289,7 @@
         document.getElementById("buzzerStatus").innerText = `สถานะ: ${buzzerState ? "เปิดเสียง" : "ปิดเสียง"}`;
       }
 
+      // ตรวจสอบ Schedule รายช่อง
       const schedOnMatch = topic.match(/myroom\/schedule\/(\d+)\/on\/state/);
       if (schedOnMatch) {
         const ch = schedOnMatch[1];
@@ -283,6 +300,16 @@
       if (schedOffMatch) {
         const ch = schedOffMatch[1];
         const el = document.getElementById(`offTime${ch}`);
+        if (el && payload !== "OFF") el.value = payload;
+      }
+
+      // ตรวจสอบ Schedule ของ Master (ทั้งหมด)
+      if (topic === "myroom/schedule/all/on/state") {
+        const el = document.getElementById("masterOnTime");
+        if (el && payload !== "OFF") el.value = payload;
+      }
+      if (topic === "myroom/schedule/all/off/state") {
+        const el = document.getElementById("masterOffTime");
         if (el && payload !== "OFF") el.value = payload;
       }
     }
@@ -320,6 +347,14 @@
       const val = el.value || "OFF";
       sendMqtt(`myroom/schedule/${ch}/${type}`, val);
       addLog(`ตั้งเวลาช่อง ${ch} (${type}): ${val}`);
+    }
+
+    // ตั้งเวลาเปิด-ปิด ทั้งหมด (Master Schedule)
+    function updateMasterSchedule(type) {
+      const el = document.getElementById(`master${type.charAt(0).toUpperCase() + type.slice(1)}Time`);
+      const val = el.value || "OFF";
+      sendMqtt(`myroom/schedule/all/${type}`, val);
+      addLog(`ตั้งเวลาเปิด-ปิดทั้งหมด (${type}): ${val}`);
     }
 
     window.onload = function() {
