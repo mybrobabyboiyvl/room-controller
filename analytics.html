@@ -101,38 +101,32 @@
       modal.classList.toggle("flex");
     }
 
-    // สมัครสมาชิก (ใช้ Content-Type: text/plain ป้องกันปัญหา CORS บน Browser)
+    // สมัครสมาชิก (ส่งแบบ GET ไม่โดน Browser บล็อก CORS)
     async function handleRegister() {
       const u = document.getElementById("authUsername").value.trim();
       const p = document.getElementById("authPassword").value.trim();
       if (!u || !p) return alert("กรุณากรอกชื่อและรหัสผ่านให้ครบถ้วน");
 
       try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "register", username: u, password: p })
-        });
+        const url = `${SCRIPT_URL}?action=register&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`;
+        const res = await fetch(url);
         const data = await res.json();
         alert(data.message);
       } catch (err) {
         console.error("Register Error:", err);
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ ตรวจสอบสิทธิ์ Apps Script");
       }
     }
 
-    // เข้าสู่ระบบ
+    // เข้าสู่ระบบ (ส่งแบบ GET ไม่โดน Browser บล็อก CORS)
     async function handleLogin() {
       const u = document.getElementById("authUsername").value.trim();
       const p = document.getElementById("authPassword").value.trim();
       if (!u || !p) return alert("กรุณากรอกชื่อและรหัสผ่านให้ครบถ้วน");
 
       try {
-        const res = await fetch(SCRIPT_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ action: "login", username: u, password: p })
-        });
+        const url = `${SCRIPT_URL}?action=login&username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`;
+        const res = await fetch(url);
         const data = await res.json();
         if (data.success) {
           localStorage.setItem("smarthome_user", data.username);
@@ -143,7 +137,7 @@
         }
       } catch (err) {
         console.error("Login Error:", err);
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ ตรวจสอบสิทธิ์ Apps Script");
       }
     }
 
@@ -170,7 +164,7 @@
         const res = await fetch(SCRIPT_URL);
         const data = await res.json();
         if (data.success) {
-          allLogs = data.logs.reverse(); // นำรายการล่าสุดขึ้นก่อน
+          allLogs = data.logs.reverse(); // เอาประวัติล่าสุดขึ้นก่อน
           renderTable();
         }
       } catch (e) {
