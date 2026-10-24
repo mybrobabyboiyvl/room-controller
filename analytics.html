@@ -90,12 +90,12 @@
   </div>
 
   <script>
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLbf0NUTNZdP2nNSIkVTI0W0scVQDGdi9m8bsy21D7ZLVO0h7xILPzCpINTT-Rp3TSyg/exec";
+    // อัปเดต URL เป็นของบัญชี Gmail ใหม่เรียบร้อยแล้ว
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwn1VgjaEhPSTBRGUy-OFbaEcjgSFXtTcjFV7yShiN1ndKDBLd7Xo_gq_6Wu55RERvH/exec";
 
     let allLogs = [];
     let currentFilter = 'ALL';
 
-    // ฟังก์ชันส่งคำขอแบบ JSONP ข้ามปัญหา CORS ของเบราว์เซอร์ 100%
     function requestJSONP(url) {
       return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_cb_' + Math.round(100000 * Math.random());
@@ -136,7 +136,7 @@
         alert(data.message);
       } catch (err) {
         console.error("Register Error:", err);
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ ตรวจสอบสิทธิ์ Apps Script");
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
       }
     }
 
@@ -157,7 +157,7 @@
         }
       } catch (err) {
         console.error("Login Error:", err);
-        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ ตรวจสอบสิทธิ์ Apps Script");
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
       }
     }
 
@@ -188,7 +188,7 @@
           renderTable();
         }
       } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-rose-400">โหลดข้อมูลไม่สำเร็จ ตรวจสอบสิทธิ์ของ Apps Script</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-rose-400">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
       }
     }
 
