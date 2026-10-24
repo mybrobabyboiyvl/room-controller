@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SmartHome Analytics & Logs</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style> body { font-family: 'Prompt', sans-serif; } </style>
 </head>
@@ -14,51 +15,53 @@
 
   <div class="max-w-5xl mx-auto space-y-6">
     <!-- Header -->
-    <header class="flex justify-between items-center bg-slate-800/80 p-6 rounded-2xl border border-slate-700 shadow-xl">
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800/80 backdrop-blur p-6 rounded-2xl border border-slate-700 shadow-xl">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-          📊 ประวัติและสถิติการใช้งาน
+          <span>📊</span> ประวัติและสถิติการใช้งาน
         </h1>
-        <p id="userBanner" class="text-xs text-slate-400 mt-1">ยังไม่ได้เข้าสู่ระบบ</p>
+        <p id="userBanner" class="text-xs text-slate-400 mt-1">ยังไม่ได้เข้าสู่ระบบ (บันทึกเป็น Web_Guest)</p>
       </div>
-      <div class="flex gap-2">
+      <div class="flex items-center gap-2">
         <a href="index.html" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition">
           ⬅️ กลับหน้าควบคุม
         </a>
-        <button id="authBtn" onclick="toggleAuthModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-medium rounded-xl transition">
+        <button id="authBtn" onclick="toggleAuthModal()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-sm font-medium rounded-xl transition shadow-lg shadow-blue-600/30">
           เข้าสู่ระบบ / สมัคร
         </button>
       </div>
     </header>
 
-    <!-- Filter Buttons (เลือกลำดับดวงไฟ) -->
-    <div class="flex flex-wrap gap-2 items-center">
-      <span class="text-sm text-slate-400 mr-2">กรองประวัติรายช่อง:</span>
-      <button onclick="filterLogs('ALL')" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white">ทั้งหมด</button>
-      <button onclick="filterLogs('1')" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ช่อง 1</button>
-      <button onclick="filterLogs('2')" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ช่อง 2</button>
-      <button onclick="filterLogs('3')" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ช่อง 3</button>
-      <button onclick="filterLogs('4')" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ช่อง 4</button>
-      <button onclick="fetchLogs()" class="ml-auto px-3 py-1.5 bg-slate-800 border border-slate-700 hover:text-white rounded-xl text-xs flex items-center gap-1">
+    <!-- กรองประวัติรายช่อง -->
+    <div class="flex flex-wrap gap-2 items-center bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60">
+      <span class="text-xs text-slate-400 mr-2">เลือกดูกรองรายช่อง:</span>
+      <button onclick="filterLogs('ALL')" id="filterBtnALL" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white">ทั้งหมด</button>
+      <button onclick="filterLogs('1')" id="filterBtn1" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 1</button>
+      <button onclick="filterLogs('2')" id="filterBtn2" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 2</button>
+      <button onclick="filterLogs('3')" id="filterBtn3" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 3</button>
+      <button onclick="filterLogs('4')" id="filterBtn4" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 4</button>
+      <button onclick="filterLogs('All')" id="filterBtnMaster" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Master (All)</button>
+      
+      <button onclick="fetchLogs()" class="ml-auto px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs flex items-center gap-1 transition">
         🔄 รีเฟรชตาราง
       </button>
     </div>
 
     <!-- Data Table -->
     <div class="bg-slate-800/60 rounded-2xl border border-slate-700 overflow-hidden shadow-lg">
-      <div class="overflow-x-auto max-h-[500px]">
+      <div class="overflow-x-auto max-h-[550px]">
         <table class="w-full text-left text-sm text-slate-300">
-          <thead class="bg-slate-950/70 text-xs uppercase text-slate-400 sticky top-0">
+          <thead class="bg-slate-950/80 text-xs uppercase text-slate-400 sticky top-0 backdrop-blur">
             <tr>
               <th class="px-6 py-4">วัน / เวลา</th>
               <th class="px-6 py-4">ช่องไฟ</th>
-              <th class="px-6 py-4">การทำงาน</th>
+              <th class="px-6 py-4">สถานะ</th>
               <th class="px-6 py-4">ผู้สั่งการ</th>
               <th class="px-6 py-4">อุปกรณ์</th>
             </tr>
           </thead>
           <tbody id="logsTableBody" class="divide-y divide-slate-700/50">
-            <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">กำลังโหลดประวัติจาก Google Sheets...</td></tr>
+            <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">กำลังเชื่อมต่อฐานข้อมูล Google Sheets...</td></tr>
           </tbody>
         </table>
       </div>
@@ -68,21 +71,26 @@
   <!-- Modal เข้าสู่ระบบ / ลงทะเบียน -->
   <div id="authModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
     <div class="bg-slate-800 border border-slate-700 max-w-sm w-full p-6 rounded-2xl shadow-2xl space-y-4">
-      <h3 id="modalTitle" class="text-lg font-bold text-white">เข้าสู่ระบบ</h3>
-      <input type="text" id="authUsername" placeholder="ชื่อผู้ใช้งาน (Username)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" />
-      <input type="password" id="authPassword" placeholder="รหัสผ่าน" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500" />
+      <h3 class="text-lg font-bold text-white">เข้าสู่ระบบ / ลงทะเบียน</h3>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">ชื่อผู้ใช้งาน (Username)</label>
+        <input type="text" id="authUsername" placeholder="กรอกชื่อผู้ใช้..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">รหัสผ่าน</label>
+        <input type="password" id="authPassword" placeholder="กรอกรหัสผ่าน..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-blue-500" />
+      </div>
       
       <div class="flex gap-2 pt-2">
-        <button onclick="handleLogin()" class="w-1/2 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition">เข้าสู่ระบบ</button>
-        <button onclick="handleRegister()" class="w-1/2 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold transition">สมัครสมาชิก</button>
+        <button onclick="handleLogin()" class="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-semibold transition active:scale-95">เข้าสู่ระบบ</button>
+        <button onclick="handleRegister()" class="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-sm font-semibold transition active:scale-95">สมัครสมาชิก</button>
       </div>
-      <button onclick="toggleAuthModal()" class="w-full text-center text-xs text-slate-400 hover:text-white pt-2">ปิดหน้าต่าง</button>
+      <button onclick="toggleAuthModal()" class="w-full text-center text-xs text-slate-400 hover:text-white pt-2">ยกเลิก</button>
     </div>
   </div>
 
   <script>
-    // ** ใส่ Web App URL ที่ได้จาก Google Apps Script ที่นี่ **
-    const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL_HERE";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLbf0NUTNZdP2nNSIkVTI0W0scVQDGdi9m8bsy21D7ZLVO0h7xILPzCpINTT-Rp3TSyg/exec";
 
     let allLogs = [];
     let currentFilter = 'ALL';
@@ -96,32 +104,40 @@
     async function handleRegister() {
       const u = document.getElementById("authUsername").value.trim();
       const p = document.getElementById("authPassword").value.trim();
-      if (!u || !p) return alert("กรุณากรอกชื่อและรหัสผ่าน");
+      if (!u || !p) return alert("กรุณากรอกชื่อและรหัสผ่านให้ครบถ้วน");
 
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "register", username: u, password: p })
-      });
-      const data = await res.json();
-      alert(data.message);
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "register", username: u, password: p })
+        });
+        const data = await res.json();
+        alert(data.message);
+      } catch (err) {
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      }
     }
 
     async function handleLogin() {
       const u = document.getElementById("authUsername").value.trim();
       const p = document.getElementById("authPassword").value.trim();
-      if (!u || !p) return alert("กรุณากรอกชื่อและรหัสผ่าน");
+      if (!u || !p) return alert("กรุณากรอกชื่อและรหัสผ่านให้ครบถ้วน");
 
-      const res = await fetch(SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "login", username: u, password: p })
-      });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem("smarthome_user", data.username);
-        updateUserUI();
-        toggleAuthModal();
-      } else {
-        alert(data.message);
+      try {
+        const res = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "login", username: u, password: p })
+        });
+        const data = await res.json();
+        if (data.success) {
+          localStorage.setItem("smarthome_user", data.username);
+          updateUserUI();
+          toggleAuthModal();
+        } else {
+          alert(data.message);
+        }
+      } catch (err) {
+        alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
       }
     }
 
@@ -130,7 +146,7 @@
       const banner = document.getElementById("userBanner");
       const authBtn = document.getElementById("authBtn");
       if (user) {
-        banner.innerText = `เข้าสู่ระบบในชื่อ: ${user}`;
+        banner.innerText = `เข้าสู่ระบบแล้ว: ${user}`;
         authBtn.innerText = "ออกจากระบบ";
         authBtn.className = "px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition";
         authBtn.onclick = () => {
@@ -148,11 +164,11 @@
         const res = await fetch(SCRIPT_URL);
         const data = await res.json();
         if (data.success) {
-          allLogs = data.logs.reverse(); // เรียงจากล่าสุดขึ้นก่อน
+          allLogs = data.logs.reverse(); // นำรายการล่าสุดขึ้นก่อน
           renderTable();
         }
       } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-rose-400">โหลดข้อมูลล้มเหลว ตรวจสอบ URL ของ Apps Script</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-rose-400">โหลดข้อมูลไม่สำเร็จ ตรวจสอบการอนุญาตของ Apps Script</td></tr>`;
       }
     }
 
@@ -169,15 +185,15 @@
       const tbody = document.getElementById("logsTableBody");
       const filtered = currentFilter === 'ALL' 
         ? allLogs 
-        : allLogs.filter(item => String(item.channel) === String(currentFilter));
+        : allLogs.filter(item => String(item.channel).toLowerCase() === String(currentFilter).toLowerCase());
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">ไม่มีข้อมูลบันทึกในช่องนี้</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">ไม่มีประวัติการใช้งานในหมวดนี้</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(log => `
-        <tr class="hover:bg-slate-700/30">
+        <tr class="hover:bg-slate-700/30 transition">
           <td class="px-6 py-3 font-mono text-xs text-slate-400">${log.timestamp}</td>
           <td class="px-6 py-3 font-semibold text-white">ช่อง ${log.channel}</td>
           <td class="px-6 py-3">
