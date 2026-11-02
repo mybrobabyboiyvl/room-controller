@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" class="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SmartHome KMITL Dashboard</title>
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind CSS CDN พร้อม config รองรับ dark mode class -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
   <!-- Paho MQTT WebSocket Client -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,23 +20,27 @@
     body { font-family: 'Prompt', sans-serif; }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-4 md:p-8">
+<body class="bg-slate-100 dark:bg-[#0c1322] text-slate-800 dark:text-slate-100 min-h-screen p-4 md:p-8 transition-colors duration-300">
 
   <div class="max-w-4xl mx-auto space-y-6">
     <!-- Header -->
-    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-800/80 backdrop-blur p-6 rounded-2xl border border-slate-700 shadow-xl">
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg dark:shadow-xl transition-colors duration-300">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
           <span>💡</span> SmartHome Room Controller
         </h1>
-        <p class="text-sm text-slate-400 mt-1 flex items-center gap-2">
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
           <span id="mqttStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
           <span id="mqttStatusText">กำลังเชื่อมต่อ HiveMQ...</span>
         </p>
       </div>
       <div class="flex items-center gap-3">
-        <!-- ลิงก์ไปหน้า Analytics & History -->
-        <a href="analytics.html" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-2">
+        <!-- ปุ่มสลับธีม สว่าง / มืด -->
+        <button onclick="toggleTheme()" id="themeBtn" class="p-2.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded-xl transition-all text-base flex items-center justify-center shadow-sm">
+          🌙
+        </button>
+        <!-- ลิงก์ไปหน้าดูประวัติ -->
+        <a href="analytics.html" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-2">
           <span>📊</span> <span>ดูประวัติ & เข้าสู่ระบบ</span>
         </a>
       </div>
@@ -40,29 +49,29 @@
     <!-- Master Control & Settings Panel -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <!-- Master Switch & Master Schedule -->
-      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between space-y-4">
+      <div class="bg-white dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-4 shadow-sm transition-colors duration-300">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="font-semibold text-lg text-white">Master Control</h2>
-            <p class="text-xs text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
+            <h2 class="font-semibold text-lg text-slate-900 dark:text-white">Master Control</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">สั่งเปิด-ปิดไฟพร้อมกันทุกช่อง</p>
           </div>
           <div class="flex gap-2">
-            <button onclick="triggerMaster('ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+            <button onclick="triggerMaster('ON')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition-all active:scale-95 shadow-md shadow-emerald-600/20">
               เปิดหมด
             </button>
-            <button onclick="triggerMaster('OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-sm font-medium rounded-xl transition-all active:scale-95">
+            <button onclick="triggerMaster('OFF')" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium rounded-xl transition-all active:scale-95 shadow-md shadow-rose-600/20">
               ปิดหมด
             </button>
           </div>
         </div>
-        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
-            <label class="text-slate-400 block mb-1">เวลาเปิดทั้งหมด (Auto ON)</label>
-            <input type="time" id="masterOnTime" onchange="updateMasterSchedule('on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาเปิดทั้งหมด (Auto ON)</label>
+            <input type="time" id="masterOnTime" onchange="updateMasterSchedule('on')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">เวลาปิดทั้งหมด (Auto OFF)</label>
-            <input type="time" id="masterOffTime" onchange="updateMasterSchedule('off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาปิดทั้งหมด (Auto OFF)</label>
+            <input type="time" id="masterOffTime" onchange="updateMasterSchedule('off')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
         </div>
       </div>
@@ -70,23 +79,23 @@
       <!-- Quick Toggles (Buzzer & Telegram) -->
       <div class="grid grid-cols-1 gap-3">
         <!-- Buzzer Toggle -->
-        <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
+        <div class="bg-white dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between shadow-sm transition-colors duration-300">
           <div>
-            <h2 class="font-semibold text-base text-white">Buzzer เสียงเตือน</h2>
-            <p id="buzzerStatus" class="text-xs text-slate-400">สถานะ: กำลังโหลด...</p>
+            <h2 class="font-semibold text-base text-slate-900 dark:text-white">Buzzer เสียงเตือน</h2>
+            <p id="buzzerStatus" class="text-xs text-slate-500 dark:text-slate-400">สถานะ: กำลังโหลด...</p>
           </div>
-          <button id="buzzerBtn" onclick="toggleBuzzer()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition-all active:scale-95">
+          <button id="buzzerBtn" onclick="toggleBuzzer()" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium rounded-xl transition-all active:scale-95">
             🔊 สลับเสียง
           </button>
         </div>
 
         <!-- Telegram Notification Toggle -->
-        <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
+        <div class="bg-white dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between shadow-sm transition-colors duration-300">
           <div>
-            <h2 class="font-semibold text-base text-white">แจ้งเตือน Telegram</h2>
-            <p id="telegramStatus" class="text-xs text-slate-400">สถานะ: กำลังโหลด...</p>
+            <h2 class="font-semibold text-base text-slate-900 dark:text-white">แจ้งเตือน Telegram</h2>
+            <p id="telegramStatus" class="text-xs text-slate-500 dark:text-slate-400">สถานะ: กำลังโหลด...</p>
           </div>
-          <button id="telegramBtn" onclick="toggleTelegram()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition-all active:scale-95">
+          <button id="telegramBtn" onclick="toggleTelegram()" class="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium rounded-xl transition-all active:scale-95">
             ✈️ สลับแจ้งเตือน
           </button>
         </div>
@@ -96,111 +105,111 @@
     <!-- 4 Relay Channels Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <!-- Channel 1 -->
-      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+      <div class="bg-white dark:bg-slate-800/70 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 transition-colors duration-300">
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-3">
-            <div id="bulbIcon1" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div id="bulbIcon1" class="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
-              <h3 class="font-semibold text-white">ไฟช่อง 1</h3>
+              <h3 class="font-semibold text-slate-900 dark:text-white">ไฟช่อง 1</h3>
             </div>
           </div>
-          <button id="toggleBtn1" onclick="toggleRelay(1)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+          <button id="toggleBtn1" onclick="toggleRelay(1)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300 active:scale-95 transition-all">
             ...
           </button>
         </div>
-        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
-            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
-            <input type="time" id="onTime1" onchange="updateSchedule(1, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime1" onchange="updateSchedule(1, 'on')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
-            <input type="time" id="offTime1" onchange="updateSchedule(1, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime1" onchange="updateSchedule(1, 'off')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
         </div>
       </div>
 
       <!-- Channel 2 -->
-      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+      <div class="bg-white dark:bg-slate-800/70 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 transition-colors duration-300">
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-3">
-            <div id="bulbIcon2" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div id="bulbIcon2" class="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
-              <h3 class="font-semibold text-white">ไฟช่อง 2</h3>
+              <h3 class="font-semibold text-slate-900 dark:text-white">ไฟช่อง 2</h3>
             </div>
           </div>
-          <button id="toggleBtn2" onclick="toggleRelay(2)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+          <button id="toggleBtn2" onclick="toggleRelay(2)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300 active:scale-95 transition-all">
             ...
           </button>
         </div>
-        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
-            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
-            <input type="time" id="onTime2" onchange="updateSchedule(2, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime2" onchange="updateSchedule(2, 'on')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
-            <input type="time" id="offTime2" onchange="updateSchedule(2, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime2" onchange="updateSchedule(2, 'off')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
         </div>
       </div>
 
       <!-- Channel 3 -->
-      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+      <div class="bg-white dark:bg-slate-800/70 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 transition-colors duration-300">
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-3">
-            <div id="bulbIcon3" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div id="bulbIcon3" class="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
-              <h3 class="font-semibold text-white">ไฟช่อง 3</h3>
+              <h3 class="font-semibold text-slate-900 dark:text-white">ไฟช่อง 3</h3>
             </div>
           </div>
-          <button id="toggleBtn3" onclick="toggleRelay(3)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+          <button id="toggleBtn3" onclick="toggleRelay(3)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300 active:scale-95 transition-all">
             ...
           </button>
         </div>
-        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
-            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
-            <input type="time" id="onTime3" onchange="updateSchedule(3, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime3" onchange="updateSchedule(3, 'on')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
-            <input type="time" id="offTime3" onchange="updateSchedule(3, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime3" onchange="updateSchedule(3, 'off')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
         </div>
       </div>
 
       <!-- Channel 4 -->
-      <div class="bg-slate-800/70 p-5 rounded-2xl border border-slate-700 shadow-md space-y-4">
+      <div class="bg-white dark:bg-slate-800/70 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 transition-colors duration-300">
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-3">
-            <div id="bulbIcon4" class="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
+            <div id="bulbIcon4" class="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl transition-all">⚪</div>
             <div>
-              <h3 class="font-semibold text-white">ไฟช่อง 4</h3>
+              <h3 class="font-semibold text-slate-900 dark:text-white">ไฟช่อง 4</h3>
             </div>
           </div>
-          <button id="toggleBtn4" onclick="toggleRelay(4)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 active:scale-95 transition-all">
+          <button id="toggleBtn4" onclick="toggleRelay(4)" class="px-4 py-2 rounded-xl text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300 active:scale-95 transition-all">
             ...
           </button>
         </div>
-        <div class="pt-3 border-t border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
+        <div class="pt-3 border-t border-slate-200 dark:border-slate-700/60 grid grid-cols-2 gap-2 text-xs">
           <div>
-            <label class="text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
-            <input type="time" id="onTime4" onchange="updateSchedule(4, 'on')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาเปิด (Auto ON)</label>
+            <input type="time" id="onTime4" onchange="updateSchedule(4, 'on')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
           <div>
-            <label class="text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
-            <input type="time" id="offTime4" onchange="updateSchedule(4, 'off')" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-white focus:outline-none focus:border-blue-500">
+            <label class="text-slate-500 dark:text-slate-400 block mb-1">เวลาปิด (Auto OFF)</label>
+            <input type="time" id="offTime4" onchange="updateSchedule(4, 'off')" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg p-1.5 text-slate-900 dark:text-white focus:outline-none focus:border-blue-500">
           </div>
         </div>
       </div>
     </div>
 
     <!-- Live Event Log -->
-    <div class="bg-slate-800/50 p-5 rounded-2xl border border-slate-700 text-xs text-slate-400">
-      <div class="flex justify-between items-center mb-2 font-semibold text-slate-300">
+    <div class="bg-white dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 shadow-sm transition-colors duration-300">
+      <div class="flex justify-between items-center mb-2 font-semibold text-slate-700 dark:text-slate-300">
         <span>📜 ประวัติการทำงานล่าสุด</span>
-        <button onclick="document.getElementById('logArea').innerHTML=''" class="hover:text-white">ล้างประวัติ</button>
+        <button onclick="document.getElementById('logArea').innerHTML=''" class="hover:text-slate-900 dark:hover:text-white">ล้างประวัติ</button>
       </div>
       <div id="logArea" class="space-y-1 max-h-36 overflow-y-auto font-mono">
         <div>[System] หน้าเว็บโหลดเรียบร้อย พร้อมใช้งาน</div>
@@ -209,6 +218,26 @@
   </div>
 
   <script>
+    // --- 0. Theme Toggle (สว่าง / มืด) ---
+    function initTheme() {
+      const savedTheme = localStorage.getItem('smarthome_theme');
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+        document.getElementById('themeBtn').innerText = '☀️';
+      } else {
+        document.documentElement.classList.add('dark');
+        document.getElementById('themeBtn').innerText = '🌙';
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('smarthome_theme', isDark ? 'dark' : 'light');
+      document.getElementById('themeBtn').innerText = isDark ? '🌙' : '☀️';
+    }
+
+    initTheme();
+
     // --- 1. การตั้งค่า HiveMQ และ Google Apps Script ---
     const MQTT_HOST = "4c4307568518463d97317cea07a00ac4.s1.eu.hivemq.cloud";
     const MQTT_PORT = 8884;
@@ -272,7 +301,7 @@
 
       client.subscribe("myroom/relay/+/state");
       client.subscribe("myroom/buzzer/state");
-      client.subscribe("myroom/telegram/state"); // สมัครรับ Topic สถานะ Telegram
+      client.subscribe("myroom/telegram/state");
       client.subscribe("myroom/schedule/+/on/state");
       client.subscribe("myroom/schedule/+/off/state");
       client.subscribe("myroom/schedule/all/on/state");
@@ -316,7 +345,6 @@
         const ch = parseInt(relayMatch[1]);
         const isOn = (payload === "ON");
 
-        // ตรวจจับเมื่อสถานะเปลี่ยนจากการกดปุ่มที่บอร์ดจริง
         if (relayStates[ch] !== null && relayStates[ch] !== isOn) {
           if (!isWebTriggered[ch] && !isWebTriggered["All"]) {
             logToGoogleSheets(ch, payload, "Hardware_Button", "ESP32");
@@ -337,23 +365,23 @@
         if (btn) {
           btn.className = buzzerState
             ? "px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-xl transition-all active:scale-95 shadow-md shadow-amber-600/20"
-            : "px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-xl transition-all active:scale-95";
+            : "px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-300 text-sm font-medium rounded-xl transition-all active:scale-95";
         }
       }
 
-      // จัดการสถานะ Telegram Notification
+      // จัดการสถานะ Telegram Notification (ตัดคำว่า ลดดีเลย์ ออกเรียบร้อย)
       if (topic === "myroom/telegram/state") {
         telegramState = (payload === "ON");
         const statusEl = document.getElementById("telegramStatus");
         const btn = document.getElementById("telegramBtn");
         
         if (statusEl) {
-          statusEl.innerText = `สถานะ: ${telegramState ? "เปิดแจ้งเตือน" : "ปิดชั่วคราว (ลดดีเลย์)"}`;
+          statusEl.innerText = `สถานะ: ${telegramState ? "เปิดแจ้งเตือน" : "ปิดชั่วคราว"}`;
         }
         if (btn) {
           btn.className = telegramState
             ? "px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium rounded-xl transition-all active:scale-95 shadow-md shadow-sky-600/30"
-            : "px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-xl transition-all active:scale-95";
+            : "px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-300 text-sm font-medium rounded-xl transition-all active:scale-95";
         }
         addLog(`โหมด Telegram: ${telegramState ? "ENABLED" : "MUTED"}`);
       }
@@ -395,8 +423,8 @@
         bulb.innerText = "💡";
       } else {
         btn.innerText = "ปิดอยู่ (กดเพื่อเปิด)";
-        btn.className = "px-4 py-2 rounded-xl text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 active:scale-95 transition-all";
-        bulb.className = "w-10 h-10 rounded-xl bg-slate-700 text-slate-400 flex items-center justify-center text-xl transition-all";
+        btn.className = "px-4 py-2 rounded-xl text-sm font-medium bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 active:scale-95 transition-all";
+        bulb.className = "w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-400 flex items-center justify-center text-xl transition-all";
         bulb.innerText = "⚪";
       }
     }
