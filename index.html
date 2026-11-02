@@ -30,7 +30,7 @@
         </p>
       </div>
       <div class="flex items-center gap-3">
-        <!-- ปุ่มลิงก์ไปหน้าดูประวัติและ Login -->
+        <!-- ลิงก์ไปหน้า Analytics & History -->
         <a href="analytics.html" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-sm font-medium rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center gap-2">
           <span>📊</span> <span>ดูประวัติ & เข้าสู่ระบบ</span>
         </a>
@@ -67,15 +67,29 @@
         </div>
       </div>
 
-      <!-- Buzzer Toggle -->
-      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 flex items-center justify-between">
-        <div>
-          <h2 class="font-semibold text-lg text-white">Buzzer เสียงเตือน</h2>
-          <p id="buzzerStatus" class="text-xs text-slate-400">สถานะ: กำลังโหลด...</p>
+      <!-- Quick Toggles (Buzzer & Telegram) -->
+      <div class="grid grid-cols-1 gap-3">
+        <!-- Buzzer Toggle -->
+        <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
+          <div>
+            <h2 class="font-semibold text-base text-white">Buzzer เสียงเตือน</h2>
+            <p id="buzzerStatus" class="text-xs text-slate-400">สถานะ: กำลังโหลด...</p>
+          </div>
+          <button id="buzzerBtn" onclick="toggleBuzzer()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition-all active:scale-95">
+            🔊 สลับเสียง
+          </button>
         </div>
-        <button id="buzzerBtn" onclick="toggleBuzzer()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition-all active:scale-95">
-          🔊 สลับเสียง
-        </button>
+
+        <!-- Telegram Notification Toggle -->
+        <div class="bg-slate-800/60 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
+          <div>
+            <h2 class="font-semibold text-base text-white">แจ้งเตือน Telegram</h2>
+            <p id="telegramStatus" class="text-xs text-slate-400">สถานะ: กำลังโหลด...</p>
+          </div>
+          <button id="telegramBtn" onclick="toggleTelegram()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-medium rounded-xl transition-all active:scale-95">
+            ✈️ สลับแจ้งเตือน
+          </button>
+        </div>
       </div>
     </div>
 
@@ -207,6 +221,7 @@
     let client = null;
     let relayStates = { 1: null, 2: null, 3: null, 4: null };
     let buzzerState = true;
+    let telegramState = true;
     let isWebTriggered = { 1: false, 2: false, 3: false, 4: false, "All": false };
 
     function addLog(msg) {
@@ -257,6 +272,7 @@
 
       client.subscribe("myroom/relay/+/state");
       client.subscribe("myroom/buzzer/state");
+      client.subscribe("myroom/telegram/state"); // สมัครรับ Topic สถานะ Telegram
       client.subscribe("myroom/schedule/+/on/state");
       client.subscribe("myroom/schedule/+/off/state");
       client.subscribe("myroom/schedule/all/on/state");
@@ -289,36 +305,60 @@
       }
     }
 
-    // --- 3. จัดการข้อความที่ได้รับ (ตรวจจับการกดปุ่มจากชิ้นงานจริง) ---
+    // --- 3. จัดการข้อความที่ได้รับ ---
     function onMessageArrived(message) {
       const topic = message.destinationName;
       const payload = message.payloadString;
 
+      // จัดการสถานะรีเลย์
       const relayMatch = topic.match(/myroom\/relay\/(\d+)\/state/);
       if (relayMatch) {
         const ch = parseInt(relayMatch[1]);
         const isOn = (payload === "ON");
 
-        // ตรวจจับเมื่อสถานะเปลี่ยน
+        // ตรวจจับเมื่อสถานะเปลี่ยนจากการกดปุ่มที่บอร์ดจริง
         if (relayStates[ch] !== null && relayStates[ch] !== isOn) {
-          // ถ้าไม่ได้เกิดจากการคลิกบนหน้าเว็บ แสดงว่าเป็นการกดปุ่มที่ตัวชิ้นงาน
           if (!isWebTriggered[ch] && !isWebTriggered["All"]) {
             logToGoogleSheets(ch, payload, "Hardware_Button", "ESP32");
           }
         }
 
-        // รีเซ็ตตัวเช็กเว็บ
         isWebTriggered[ch] = false;
         relayStates[ch] = isOn;
         updateRelayUI(ch, isOn);
         addLog(`หลอดไฟช่อง ${ch}: ${payload}`);
       }
 
+      // จัดการสถานะ Buzzer
       if (topic === "myroom/buzzer/state") {
         buzzerState = (payload === "ON");
         document.getElementById("buzzerStatus").innerText = `สถานะ: ${buzzerState ? "เปิดเสียง" : "ปิดเสียง"}`;
+        const btn = document.getElementById("buzzerBtn");
+        if (btn) {
+          btn.className = buzzerState
+            ? "px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium rounded-xl transition-all active:scale-95 shadow-md shadow-amber-600/20"
+            : "px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-xl transition-all active:scale-95";
+        }
       }
 
+      // จัดการสถานะ Telegram Notification
+      if (topic === "myroom/telegram/state") {
+        telegramState = (payload === "ON");
+        const statusEl = document.getElementById("telegramStatus");
+        const btn = document.getElementById("telegramBtn");
+        
+        if (statusEl) {
+          statusEl.innerText = `สถานะ: ${telegramState ? "เปิดแจ้งเตือน" : "ปิดชั่วคราว (ลดดีเลย์)"}`;
+        }
+        if (btn) {
+          btn.className = telegramState
+            ? "px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium rounded-xl transition-all active:scale-95 shadow-md shadow-sky-600/30"
+            : "px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-xl transition-all active:scale-95";
+        }
+        addLog(`โหมด Telegram: ${telegramState ? "ENABLED" : "MUTED"}`);
+      }
+
+      // ตารางเวลา
       const schedOnMatch = topic.match(/myroom\/schedule\/(\d+)\/on\/state/);
       if (schedOnMatch) {
         const ch = schedOnMatch[1];
@@ -342,7 +382,7 @@
       }
     }
 
-    // --- 4. UI Updates & Button Handlers ---
+    // --- 4. การจัดการ UI และการคลิกปุ่ม ---
     function updateRelayUI(ch, isOn) {
       const btn = document.getElementById(`toggleBtn${ch}`);
       const bulb = document.getElementById(`bulbIcon${ch}`);
@@ -382,6 +422,10 @@
 
     function toggleBuzzer() {
       sendMqtt("myroom/buzzer/set", buzzerState ? "OFF" : "ON");
+    }
+
+    function toggleTelegram() {
+      sendMqtt("myroom/telegram/set", telegramState ? "OFF" : "ON");
     }
 
     function updateSchedule(ch, type) {
