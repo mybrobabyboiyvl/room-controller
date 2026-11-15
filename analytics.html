@@ -6,6 +6,8 @@
   <title>SmartHome Analytics & Logs</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -32,15 +34,40 @@
       </div>
     </header>
 
+    <!-- Charts Section (กราฟสถิติการใช้งาน) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- กราฟที่ 1: การใช้งานช่องสัญญาณ แยกตามผู้สั่งงาน -->
+      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-white">📈 การใช้งานช่องสัญญาณ แยกตามผู้สั่งงาน</h2>
+          <span class="text-[11px] text-slate-400">ภาพรวมทั้งหมด</span>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="channelChart"></canvas>
+        </div>
+      </div>
+
+      <!-- กราฟที่ 2: จำนวนการสั่งงานรายวัน แยกตามผู้สั่งงาน -->
+      <div class="bg-slate-800/60 p-5 rounded-2xl border border-slate-700 shadow-lg">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-white">📅 จำนวนการสั่งงานรายวัน แยกตามผู้สั่งงาน</h2>
+          <span id="dailyChartBadge" class="text-[11px] text-blue-400 bg-blue-950/60 border border-blue-800/50 px-2 py-0.5 rounded-full">ทั้งหมด</span>
+        </div>
+        <div class="relative h-64 w-full">
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     <!-- กรองประวัติรายช่อง -->
     <div class="flex flex-wrap gap-2 items-center bg-slate-800/40 p-3 rounded-2xl border border-slate-700/60">
       <span class="text-xs text-slate-400 mr-2">เลือกดูกรองรายช่อง:</span>
-      <button onclick="filterLogs('ALL')" id="filterBtnALL" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white">ทั้งหมด</button>
-      <button onclick="filterLogs('1')" id="filterBtn1" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 1</button>
-      <button onclick="filterLogs('2')" id="filterBtn2" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 2</button>
-      <button onclick="filterLogs('3')" id="filterBtn3" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 3</button>
-      <button onclick="filterLogs('4')" id="filterBtn4" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 4</button>
-      <button onclick="filterLogs('All')" id="filterBtnMaster" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Master (All)</button>
+      <button onclick="filterLogs('ALL', this)" id="filterBtnALL" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white">ทั้งหมด</button>
+      <button onclick="filterLogs('1', this)" id="filterBtn1" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 1</button>
+      <button onclick="filterLogs('2', this)" id="filterBtn2" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 2</button>
+      <button onclick="filterLogs('3', this)" id="filterBtn3" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 3</button>
+      <button onclick="filterLogs('4', this)" id="filterBtn4" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">ไฟช่อง 4</button>
+      <button onclick="filterLogs('All', this)" id="filterBtnMaster" class="filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Master (All)</button>
       
       <button onclick="fetchLogs()" class="ml-auto px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs flex items-center gap-1 transition">
         🔄 รีเฟรชตาราง
@@ -95,6 +122,11 @@
 
     let allLogs = [];
     let currentFilter = 'ALL';
+    let channelChartInstance = null;
+    let dailyChartInstance = null;
+
+    // ตั้งค่าฟอนต์เริ่มต้นให้ Chart.js เข้ากับเว็บ
+    Chart.defaults.font.family = "'Prompt', sans-serif";
 
     function requestJSONP(url) {
       return new Promise((resolve, reject) => {
@@ -186,19 +218,149 @@
         if (data.success) {
           allLogs = (data.logs || []).reverse();
           renderTable();
+          renderCharts();
         }
       } catch (e) {
         tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-rose-400">โหลดข้อมูลไม่สำเร็จ</td></tr>`;
       }
     }
 
-    function filterLogs(ch) {
+    function filterLogs(ch, btnEl) {
       currentFilter = ch;
       document.querySelectorAll(".filter-btn").forEach(btn => {
         btn.className = "filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700";
       });
-      event.target.className = "filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white";
+      if (btnEl) {
+        btnEl.className = "filter-btn px-4 py-1.5 rounded-xl text-xs font-semibold bg-blue-600 text-white";
+      }
+      
+      const badge = document.getElementById("dailyChartBadge");
+      badge.innerText = ch === 'ALL' ? 'ทั้งหมด' : (ch === 'All' ? 'Master (All)' : `ช่อง ${ch}`);
+      
       renderTable();
+      renderCharts();
+    }
+
+    function getUserColor(user, idx) {
+      const palette = {
+        'Hardware_Button': '#3b82f6', // สีน้ำเงิน
+        'admin': '#f59e0b',           // สีเหลืองส้ม
+        'Web_Guest': '#ef4444',       // สีแดง
+        'Siwapong': '#10b981'         // สีเขียว
+      };
+      const fallback = ['#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+      return palette[user] || fallback[idx % fallback.length];
+    }
+
+    function normalizeDateKey(ts) {
+      // แยกเอาเฉพาะส่วนวันที่ (รองรับทั้ง "2026-11-02 14:31:56" และ "24/10/2026, 19:00:00")
+      const datePart = String(ts || '').split(/[ ,T]/)[0].trim();
+      if (!datePart) return '';
+      // แปลง DD/MM/YYYY เป็น YYYY-MM-DD เพื่อให้เรียงลำดับวันที่ได้ถูกต้อง
+      if (datePart.includes('/')) {
+        const parts = datePart.split('/');
+        if (parts.length === 3 && parts[2].length === 4) {
+          return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+      }
+      return datePart;
+    }
+
+    function renderCharts() {
+      const channels = ['1', '2', '3', '4', 'All'];
+      const usersSet = new Set();
+      const channelCounts = {};
+      const dailyCounts = {};
+
+      // รวบรวมรายชื่อผู้สั่งงานทั้งหมดและนับยอดตามช่องสัญญาณ (ใช้ข้อมูลทั้งหมด)
+      allLogs.forEach(log => {
+        const ch = String(log.channel || '').trim();
+        const user = String(log.triggerBy || 'Unknown').trim();
+        if (!ch) return;
+
+        usersSet.add(user);
+        if (!channelCounts[user]) {
+          channelCounts[user] = { '1': 0, '2': 0, '3': 0, '4': 0, 'All': 0 };
+        }
+        // ตรวจสอบให้ตรงกับ key (เช่น 'all' หรือ 'All')
+        const matchedCh = channels.find(c => c.toLowerCase() === ch.toLowerCase());
+        if (matchedCh) {
+          channelCounts[user][matchedCh]++;
+        }
+      });
+
+      // กรองข้อมูลสำหรับกราฟรายวันตามปุ่มที่เลือก
+      const filteredForDaily = currentFilter === 'ALL'
+        ? allLogs
+        : allLogs.filter(item => String(item.channel).toLowerCase() === String(currentFilter).toLowerCase());
+
+      filteredForDaily.forEach(log => {
+        const user = String(log.triggerBy || 'Unknown').trim();
+        const dateKey = normalizeDateKey(log.timestamp);
+        if (!dateKey) return;
+
+        if (!dailyCounts[dateKey]) dailyCounts[dateKey] = {};
+        dailyCounts[dateKey][user] = (dailyCounts[dateKey][user] || 0) + 1;
+      });
+
+      const users = Array.from(usersSet);
+
+      // 1. สร้างกราฟแยกตามช่องสัญญาณ (Channel)
+      const chDatasets = users.map((u, idx) => ({
+        label: u,
+        data: channels.map(c => channelCounts[u]?.[c] || 0),
+        backgroundColor: getUserColor(u, idx),
+        borderRadius: 4
+      }));
+
+      if (channelChartInstance) channelChartInstance.destroy();
+      channelChartInstance = new Chart(document.getElementById('channelChart'), {
+        type: 'bar',
+        data: {
+          labels: ['ช่อง 1', 'ช่อง 2', 'ช่อง 3', 'ช่อง 4', 'Master (All)'],
+          datasets: chDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 11 } } }
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { display: false } },
+            y: { stacked: true, beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: '#334155' } }
+          }
+        }
+      });
+
+      // 2. สร้างกราฟจำนวนการสั่งงานรายวัน
+      const sortedDates = Object.keys(dailyCounts).sort();
+      const dailyDatasets = users.map((u, idx) => ({
+        label: u,
+        data: sortedDates.map(d => dailyCounts[d]?.[u] || 0),
+        backgroundColor: getUserColor(u, idx),
+        borderRadius: 4
+      }));
+
+      if (dailyChartInstance) dailyChartInstance.destroy();
+      dailyChartInstance = new Chart(document.getElementById('dailyChart'), {
+        type: 'bar',
+        data: {
+          labels: sortedDates,
+          datasets: dailyDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#cbd5e1', boxWidth: 12, font: { size: 11 } } }
+          },
+          scales: {
+            x: { stacked: true, ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { display: false } },
+            y: { stacked: true, beginAtZero: true, ticks: { color: '#94a3b8', font: { size: 11 } }, grid: { color: '#334155' } }
+          }
+        }
+      });
     }
 
     function renderTable() {
